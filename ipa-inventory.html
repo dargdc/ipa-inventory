@@ -286,15 +286,6 @@ h2{font-size:17px;font-weight:600}
         </div>
         <button class="btn btn-primary" onclick="recordToday()" style="align-self:flex-end">記録</button>
       </div>
-      <div class="divider"></div>
-      <div class="schedule-row">
-        <span style="font-size:13px;color:var(--text2);font-weight:600">今週の入荷：</span>
-        <div class="week-toggle">
-          <button id="toggleNew" onclick="setCurrentWeekCan('new')">新液缶</button>
-          <button id="toggleRegen" onclick="setCurrentWeekCan('regen')">再生缶</button>
-          <button id="toggleNone" onclick="setCurrentWeekCan('none')">なし</button>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -338,9 +329,9 @@ h2{font-size:17px;font-weight:600}
       <div class="menu-section-title">📖 使い方</div>
       <div style="font-size:14px;color:var(--text2);line-height:1.9;padding:4px 0">
         ① 毎日の出庫数を入力して「記録」を押す<br>
-        ② 作業なし日はカレンダーの日付をタップして出庫数を 0 に設定<br>
-        ③ 入荷があった日は「＋ 記録」→「入庫」で追加<br>
-        ④ 「今週の入荷」で今週どちらの缶が入荷週か切り替える<br>
+        ② 入荷があった日は「＋ 記録」から日付・入荷数を入力<br>
+        ③ 作業なし日はカレンダーの日付をタップして出庫数を 0 に設定<br>
+        ④ 入荷記録をもとに翌週以降の入荷予測が自動で切り替わる<br>
         ⑤ 長期休暇は「休日設定」で期間まとめて登録
       </div>
     </div>
@@ -404,28 +395,45 @@ h2{font-size:17px;font-weight:600}
 
 <!-- Add modal -->
 <div class="modal-overlay" id="addModal">
-  <div class="modal">
-    <div class="modal-title">入出庫を記録</div>
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">入荷・出庫を記録</div>
     <div class="modal-field">
       <label>日付</label>
       <input type="date" id="modalDate">
     </div>
-    <div class="modal-field">
-      <label>種別</label>
-      <select id="modalType">
-        <option value="new-out">新液缶 出庫</option>
-        <option value="new-in">新液缶 入庫（入荷）</option>
-        <option value="regen-out">再生缶 出庫</option>
-        <option value="regen-in">再生缶 入庫（入荷）</option>
-      </select>
+    <div class="divider"></div>
+    <!-- 新液缶 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px">新液缶</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label>入荷数（缶）</label>
+          <input type="number" id="modalNewIn" value="0" min="0" max="999" style="width:90px">
+        </div>
+        <div class="ctrl-group">
+          <label>出庫数（缶）</label>
+          <input type="number" id="modalNewOut" value="0" min="0" max="999" style="width:90px">
+        </div>
+      </div>
     </div>
-    <div class="modal-field">
-      <label>缶数</label>
-      <input type="number" id="modalQty" value="2" min="1" max="999">
+    <!-- 再生缶 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:10px">再生缶</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label>入荷数（缶）</label>
+          <input type="number" id="modalRegenIn" value="0" min="0" max="999" style="width:90px">
+        </div>
+        <div class="ctrl-group">
+          <label>出庫数（缶）</label>
+          <input type="number" id="modalRegenOut" value="0" min="0" max="999" style="width:90px">
+        </div>
+      </div>
     </div>
+    <div class="divider"></div>
     <div class="modal-field">
       <label>メモ（任意）</label>
-      <textarea id="modalNote" placeholder="例：定期入荷、緊急補充など"></textarea>
+      <input type="text" id="modalNote" placeholder="例：定期入荷、緊急補充など" style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:16px;color:var(--text);outline:none;font-family:inherit">
     </div>
     <div class="modal-actions">
       <button class="btn" onclick="closeModal()">キャンセル</button>
@@ -653,12 +661,7 @@ function formatDateShort(d) {
 }
 
 function updateScheduleToggle() {
-  const cw = state.settings.currentWeekCan;
-  document.getElementById('toggleNew').className = 'week-toggle button ' + (cw === 'new' ? 'active-new' : '');
-  document.getElementById('toggleRegen').className = 'week-toggle button ' + (cw === 'regen' ? 'active-regen' : '');
-  document.getElementById('toggleNone').className = 'week-toggle button';
-  if (cw === 'new') document.getElementById('toggleNew').classList.add('active-new');
-  else if (cw === 'regen') document.getElementById('toggleRegen').classList.add('active-regen');
+  // トグル廃止：ログベースの自動判定に変更
 }
 
 function setCurrentWeekCan(type) {
@@ -675,27 +678,43 @@ function getWeekNumber(d) {
   return Math.ceil(((t - jan1) / 86400000 + jan1.getDay() + 1) / 7);
 }
 
+function getLastDeliveryFromLog() {
+  // ログから最新の入荷記録を取得して缶タイプと日付を返す
+  const inLogs = state.log
+    .filter(l => l.direction === 'in')
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return inLogs.length > 0 ? inLogs[0] : null;
+}
+
 function getDeliveryForDate(dateStr) {
   const _p = dateStr.split('-');
   const d = new Date(parseInt(_p[0]), parseInt(_p[1])-1, parseInt(_p[2]));
   // 休暇期間中は入荷なし
   if (isHolidayDate(dateStr)) return null;
+  // 入荷曜日でなければnull
   if (d.getDay() !== state.settings.deliveryDayOfWeek) return null;
-  // Current week of today
-  const t = today();
-  const todayWeek = getWeekNumber(t);
-  const dWeek = getWeekNumber(d);
-  const weekDiff = dWeek - todayWeek;
-  // Alternate from current
-  const cw = state.settings.currentWeekCan;
-  if (cw === 'none') return null;
-  // Even week diff -> same as current, odd -> other
-  const isEven = ((weekDiff % 2) + 2) % 2 === 0;
-  if (isEven) {
-    return cw; // same as current week
-  } else {
-    return cw === 'new' ? 'regen' : 'new';
+  // ログから最終入荷を取得して隔週判定
+  const last = getLastDeliveryFromLog();
+  if (!last) {
+    // ログなし：設定のcurrentWeekCanにフォールバック
+    const cw = state.settings.currentWeekCan;
+    if (!cw || cw === 'none') return null;
+    const todayWeek = getWeekNumber(today());
+    const dWeek = getWeekNumber(d);
+    const weekDiff = dWeek - todayWeek;
+    const isEven = ((weekDiff % 2) + 2) % 2 === 0;
+    return isEven ? cw : (cw === 'new' ? 'regen' : 'new');
   }
+  // 最終入荷日から対象日までの週差を計算
+  const lastParts = last.date.split('-');
+  const lastDate = new Date(parseInt(lastParts[0]), parseInt(lastParts[1])-1, parseInt(lastParts[2]));
+  const lastWeek = getWeekNumber(lastDate);
+  const dWeek = getWeekNumber(d);
+  const weekDiff = dWeek - lastWeek;
+  if (weekDiff === 0) return null; // 最終入荷と同じ週は入荷なし
+  // 奇数週差→逆の缶、偶数週差→同じ缶
+  const isOdd = Math.abs(weekDiff) % 2 === 1;
+  return isOdd ? (last.canType === 'new' ? 'regen' : 'new') : last.canType;
 }
 
 function isHolidayDate(dateStr) {
@@ -1052,50 +1071,80 @@ function saveSettings() {
 }
 
 // ===== QUICK RECORD =====
-function recordToday() {
+async function recordToday() {
   const newOut = parseInt(document.getElementById('quickNewOut').value) || 0;
   const regenOut = parseInt(document.getElementById('quickRegenOut').value) || 0;
   const note = document.getElementById('quickNote').value.trim();
   const ds = todayStr();
+  const entries = [];
   if (newOut > 0) {
-    state.log.push({ date: ds, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' });
+    const e = { date: ds, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' };
+    state.log.push(e);
     state.newStock = Math.max(0, state.newStock - newOut);
+    entries.push(e);
   }
   if (regenOut > 0) {
-    state.log.push({ date: ds, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' });
+    const e = { date: ds, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' };
+    state.log.push(e);
     state.regenStock = Math.max(0, state.regenStock - regenOut);
+    entries.push(e);
   }
   document.getElementById('quickNote').value = '';
   save();
   render();
+  // GASにも保存
+  for (const e of entries) {
+    try { await gasGet({ action: 'appendLog', row: JSON.stringify(e) }); } catch(err) {}
+  }
 }
 
 // ===== MODAL =====
 function openAddModal() {
   document.getElementById('modalDate').value = todayStr();
-  document.getElementById('modalQty').value = 2;
+  document.getElementById('modalNewIn').value = 0;
+  document.getElementById('modalNewOut').value = 0;
+  document.getElementById('modalRegenIn').value = 0;
+  document.getElementById('modalRegenOut').value = 0;
   document.getElementById('modalNote').value = '';
   document.getElementById('addModal').classList.add('open');
 }
 function closeModal() {
   document.getElementById('addModal').classList.remove('open');
 }
-function saveModalEntry() {
+async function saveModalEntry() {
   const date = document.getElementById('modalDate').value;
-  const type = document.getElementById('modalType').value;
-  const qty = parseInt(document.getElementById('modalQty').value) || 0;
+  const newIn = parseInt(document.getElementById('modalNewIn').value) || 0;
+  const newOut = parseInt(document.getElementById('modalNewOut').value) || 0;
+  const regenIn = parseInt(document.getElementById('modalRegenIn').value) || 0;
+  const regenOut = parseInt(document.getElementById('modalRegenOut').value) || 0;
   const note = document.getElementById('modalNote').value.trim();
-  if (!date || qty <= 0) { alert('日付と缶数を入力してください'); return; }
-  const [canType, direction] = type.split('-');
-  state.log.push({ date, canType, direction, qty, note });
-  // 今日分のみ実在庫を即時更新（過去・未来はlogから計算するため不要）
-  if (date === todayStr()) {
-    if (canType === 'new') state.newStock = Math.max(0, state.newStock + (direction === 'in' ? qty : -qty));
-    else state.regenStock = Math.max(0, state.regenStock + (direction === 'in' ? qty : -qty));
+  if (!date) { alert('日付を入力してください'); return; }
+  if (newIn === 0 && newOut === 0 && regenIn === 0 && regenOut === 0) {
+    alert('入荷数または出庫数を入力してください'); return;
+  }
+  const entries = [];
+  if (newIn > 0) entries.push({ date, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' });
+  if (newOut > 0) entries.push({ date, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' });
+  if (regenIn > 0) entries.push({ date, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' });
+  if (regenOut > 0) entries.push({ date, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' });
+  // stateに追加
+  for (const e of entries) {
+    state.log.push(e);
+    // 今日分のみ実在庫を即時更新
+    if (date === todayStr()) {
+      if (e.canType === 'new') state.newStock = Math.max(0, state.newStock + (e.direction === 'in' ? e.qty : -e.qty));
+      else state.regenStock = Math.max(0, state.regenStock + (e.direction === 'in' ? e.qty : -e.qty));
+    }
   }
   save();
   render();
   closeModal();
+  // GASのスプレッドシートにも保存
+  for (const e of entries) {
+    try {
+      await gasGet({ action: 'appendLog', row: JSON.stringify(e) });
+    } catch(err) {}
+  }
 }
 
 // ===== DAY MODAL =====
@@ -1242,7 +1291,6 @@ window.closeDayModal = closeDayModal;
 window.saveDayOverride = saveDayOverride;
 window.clearDayOverride = clearDayOverride;
 window.recordToday = recordToday;
-window.setCurrentWeekCan = setCurrentWeekCan;
 window.prevMonth = prevMonth;
 window.nextMonth = nextMonth;
 window.saveSettings = saveSettings;
