@@ -466,6 +466,27 @@ h2{font-size:17px;font-weight:600}
 </div>
 
 <script>
+// ===== PAGE SWITCH (最初に定義してグローバル登録) =====
+function switchPage(name) {
+  ['main','calendar','history','more'].forEach(p => {
+    const pg = document.getElementById('page-'+p);
+    const nb = document.getElementById('nav-'+p);
+    if (pg) pg.classList.toggle('active', p === name);
+    if (nb) nb.classList.toggle('active', p === name);
+  });
+  if (name === 'history') renderHistory();
+  if (name === 'more') { renderHolidays(); renderSettings(); }
+  if (name === 'calendar') renderCalendar();
+}
+function openTab(name) {
+  if (name === 'settings' || name === 'holidays') switchPage('more');
+  else if (name === 'history') switchPage('history');
+  else if (name === 'calendar') switchPage('calendar');
+  else switchPage('main');
+}
+window.switchPage = switchPage;
+window.openTab = openTab;
+
 // ===== STATE =====
 const DB_KEY = 'ipa_mgr_v2';
 let state = {
@@ -856,7 +877,6 @@ function renderCalendar() {
     const cons = getDailyConsumption(ds);
     const isRest = cons.isRest;
     const holidayName = getHolidayName(ds);
-    const isPast = ds < ts;
 
     let classes = 'cal-day';
     if (isToday) classes += ' today';
@@ -1176,26 +1196,6 @@ function renderHolidays() {
         <button class="log-del" onclick="deleteHoliday(${i})" style="font-size:13px;opacity:0.7;padding:6px 10px">削除</button>
       </div>`;
     }).join('');
-}
-
-// ===== TABS =====
-// ===== PAGE SWITCH =====
-window.switchPage = function(name) {
-  ['main','calendar','history','more'].forEach(p => {
-    document.getElementById('page-'+p).classList.toggle('active', p === name);
-    document.getElementById('nav-'+p).classList.toggle('active', p === name);
-  });
-  if (name === 'history') renderHistory();
-  if (name === 'more') { renderHolidays(); renderSettings(); }
-  if (name === 'calendar') renderCalendar();
-}
-
-// 旧openTab互換
-window.openTab = function(name) {
-  if (name === 'settings' || name === 'holidays') switchPage('more');
-  else if (name === 'history') switchPage('history');
-  else if (name === 'calendar') switchPage('calendar');
-  else switchPage('main');
 }
 
 // ===== EXPORT =====
