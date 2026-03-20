@@ -128,11 +128,12 @@ h2{font-size:17px;font-weight:600}
 .cal-table th{text-align:center;padding:5px 1px;color:var(--text3);font-weight:600;font-size:12px}
 .cal-table th.weekend-sun{color:#c0392b}
 .cal-table th.weekend-sat{color:#2980b9}
+.cal-table th.hide-weekend,.cal-table td.hide-weekend{display:none}
 .cal-table td{padding:2px;vertical-align:top;width:14.28%}
 .cal-day{min-height:68px;border-radius:7px;padding:4px 3px;border:0.5px solid transparent;cursor:pointer;transition:background .1s,border-color .1s}
 .cal-day:hover{background:var(--surface2);border-color:var(--border)}
 .cal-day.today{border-color:var(--blue);background:var(--blue-bg)}
-.cal-day.past{opacity:0.5}
+.cal-day.past{opacity:0.6}
 .cal-day.other-month{opacity:0.2}
 .cal-day.weekend{background:var(--surface2)}
 .cal-day.weekend.today{background:var(--blue-bg)}
@@ -143,6 +144,7 @@ h2{font-size:17px;font-weight:600}
 .can-dot{font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .can-dot.new-val{color:var(--blue)}
 .can-dot.regen-val{color:var(--teal)}
+.can-dot.past-val{opacity:0.75}
 .can-dot.rest-day{font-size:9px;color:var(--text3);font-style:italic}
 .can-dot.delivery{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;display:inline-block;margin-top:1px}
 .can-dot.delivery-new{background:var(--blue-bg);color:var(--blue)}
@@ -161,6 +163,19 @@ h2{font-size:17px;font-weight:600}
 .legend-dot.del-n{background:var(--blue-bg);border:1.5px solid var(--blue-light)}
 .legend-dot.del-r{background:var(--teal-bg);border:1.5px solid var(--teal-light)}
 .legend-dot.rest{background:var(--surface2);border:1px solid var(--border2)}
+
+/* PC向けカレンダー強化 */
+@media(min-width:600px){
+  .cal-table{font-size:13px}
+  .cal-table th{font-size:13px;padding:7px 3px}
+  .cal-table td{padding:3px}
+  .cal-day{min-height:82px;padding:6px 5px;border-radius:9px}
+  .day-num{font-size:14px;font-weight:800;margin-bottom:4px}
+  .can-dot{font-size:12px;line-height:1.5;font-weight:600}
+  .can-dot.delivery{font-size:11px;padding:2px 5px}
+  .can-dot.rest-day{font-size:11px}
+  .holiday-mark{font-size:11px}
+}
 
 /* ===== 履歴 ===== */
 .log-list{display:flex;flex-direction:column;gap:8px}
@@ -782,13 +797,29 @@ function renderCalendar() {
     const td = today();
     td.setHours(0,0,0,0);
     const diffDays = Math.round((d - td) / 86400000);
-    if (diffDays < 0) return null;
-    // 今日は見出しの実在庫と一致させる
-    if (diffDays === 0) {
-      return { ns: state.newStock, rs: state.regenStock };
+    // 今日は実在庫
+    if (diffDays === 0) return { ns: state.newStock, rs: state.regenStock, isPast: false };
+    // 未来は予測
+    if (diffDays > 0 && diffDays < newStocks.length) {
+      return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
     }
-    if (diffDays < newStocks.length) {
-      return { ns: newStocks[diffDays], rs: regenStocks[diffDays] };
+    // 過去：ログから逆算
+    if (diffDays < 0) {
+      let ns = state.newStock;
+      let rs = state.regenStock;
+      // 今日から過去に向けてログを逆算
+      const futureLogs = state.log.filter(l => l.date > dateStr && l.date <= todayStr());
+      for (const l of futureLogs) {
+        if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
+        else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
+      }
+      // その日のログも適用
+      const dayLogs = state.log.filter(l => l.date === dateStr);
+      for (const l of dayLogs) {
+        if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
+        else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
+      }
+      return { ns: Math.max(0, ns), rs: Math.max(0, rs), isPast: true };
     }
     return null;
   }
@@ -798,15 +829,18 @@ function renderCalendar() {
 
   let html = '<table class="cal-table"><thead><tr>';
   ['日','月','火','水','木','金','土'].forEach((d, i) => {
-    const cls = i === 0 ? 'weekend-sun' : i === 6 ? 'weekend-sat' : '';
-    html += `<th class="${cls}">${d}</th>`;
+    const isWE = i === 0 || i === 6;
+    const cls = (i === 0 ? 'weekend-sun' : i === 6 ? 'weekend-sat' : '') + (isWE ? ' hide-weekend' : '');
+    html += `<th class="${cls.trim()}">${d}</th>`;
   });
   html += '</tr></thead><tbody>';
 
   let row = '<tr>';
   for (let i = 0; i < startDow; i++) {
     const pd = new Date(calYear, calMonth, -startDow + i + 1);
-    row += `<td><div class="cal-day other-month past"><div class="day-num">${pd.getDate()}</div></div></td>`;
+    const pdow = pd.getDay();
+    const weClass = (pdow === 0 || pdow === 6) ? ' hide-weekend' : '';
+    row += `<td class="${weClass.trim()}"><div class="cal-day other-month past"><div class="day-num">${pd.getDate()}</div></div></td>`;
   }
 
   for (let day = 1; day <= totalDays; day++) {
@@ -822,6 +856,7 @@ function renderCalendar() {
     const cons = getDailyConsumption(ds);
     const isRest = cons.isRest;
     const holidayName = getHolidayName(ds);
+    const isPast = ds < ts;
 
     let classes = 'cal-day';
     if (isToday) classes += ' today';
@@ -838,29 +873,28 @@ function renderCalendar() {
     }
 
     const numCls = dow === 0 ? 'day-num day-num-sun' : dow === 6 ? 'day-num day-num-sat' : 'day-num';
+    const tdClass = isWeekend ? 'hide-weekend' : '';
     let innerHtml = `<div class="${numCls}">${day}</div>`;
 
     if (holidayName) innerHtml += `<div class="holiday-mark">${holidayName}</div>`;
     else if (ov && ov.note) innerHtml += `<div class="holiday-mark">${ov.note}</div>`;
 
-    if (isRest && !del) {
-      // 休み日（土日 or 出庫0設定）は在庫数の代わりに「休」表示
+    if (isRest && !del && !isPast) {
       innerHtml += `<div class="can-dot rest-day">休業日</div>`;
     }
 
     if (del === 'new') innerHtml += `<div class="can-dot delivery delivery-new">新+${getDeliveryQty('new')}</div>`;
     if (del === 'regen') innerHtml += `<div class="can-dot delivery delivery-regen">再+${getDeliveryQty('regen')}</div>`;
 
-    if (proj && !isRest) {
-      innerHtml += `<div class="can-dot new-val">新:${proj.ns}</div>`;
-      innerHtml += `<div class="can-dot regen-val">再:${proj.rs}</div>`;
-    } else if (proj && isRest && del) {
-      // 入荷があった休み日だけ在庫表示
-      innerHtml += `<div class="can-dot new-val">新:${proj.ns}</div>`;
-      innerHtml += `<div class="can-dot regen-val">再:${proj.rs}</div>`;
+    if (proj) {
+      const pastCls = proj.isPast ? ' past-val' : '';
+      if (!isRest || del || proj.isPast) {
+        innerHtml += `<div class="can-dot new-val${pastCls}">新:${proj.ns}</div>`;
+        innerHtml += `<div class="can-dot regen-val${pastCls}">再:${proj.rs}</div>`;
+      }
     }
 
-    row += `<td><div class="${classes}" onclick="openDayModal('${ds}')">${innerHtml}</div></td>`;
+    row += `<td class="${tdClass}"><div class="${classes}" onclick="openDayModal('${ds}')">${innerHtml}</div></td>`;
 
     if (dow === 6 && day < totalDays) {
       html += row + '</tr>';
@@ -872,7 +906,8 @@ function renderCalendar() {
   const lastDow = lastDay.getDay();
   if (lastDow < 6) {
     for (let i = lastDow + 1; i <= 6; i++) {
-      row += `<td><div class="cal-day other-month"><div class="day-num">${i - lastDow}</div></div></td>`;
+      const weClass = (i === 0 || i === 6) ? 'hide-weekend' : '';
+      row += `<td class="${weClass}"><div class="cal-day other-month"><div class="day-num">${i - lastDow}</div></div></td>`;
     }
   }
   html += row + '</tr></tbody></table>';
@@ -900,7 +935,7 @@ function renderHistory() {
       <span class="log-date">${dateStr}</span>
       <span class="log-type ${typeClass}">${typeLabel}</span>
       <span class="log-delta ${deltaClass}">${delta}缶</span>
-      <span class="log-note">${l.note || (l.direction === 'in' ? '入庫' : '出庫')}</span>
+      <span class="log-note">${l.note || (l.direction === 'in' ? '入荷' : '出庫')}</span>
       <button class="log-del" onclick="deleteLog(${idx})" title="削除">✕</button>
     </div>`;
   }).join('');
