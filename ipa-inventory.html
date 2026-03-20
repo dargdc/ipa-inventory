@@ -825,21 +825,31 @@ function renderCalendar() {
     if (diffDays > 0 && diffDays < newStocks.length) {
       return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
     }
-    // 過去：ログから逆算
+    // 過去：今日の実在庫から逆方向に予測計算
     if (diffDays < 0) {
       let ns = state.newStock;
       let rs = state.regenStock;
-      // 今日から過去に向けてログを逆算
-      const futureLogs = state.log.filter(l => l.date > dateStr && l.date <= todayStr());
-      for (const l of futureLogs) {
-        if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
-        else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
-      }
-      // その日のログも適用
-      const dayLogs = state.log.filter(l => l.date === dateStr);
-      for (const l of dayLogs) {
-        if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
-        else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
+      // 今日から対象日まで1日ずつ逆算
+      for (let i = -1; i >= diffDays; i--) {
+        const dd = new Date(td);
+        dd.setDate(td.getDate() + i);
+        const ds2 = toDateStr(dd);
+        // その日のログがあれば逆適用
+        const dayLogs = state.log.filter(l => l.date === ds2);
+        if (dayLogs.length > 0) {
+          for (const l of dayLogs) {
+            if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
+            else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
+          }
+        } else {
+          // ログなし：予測を逆算（出庫分を戻し、入荷分を引く）
+          const cons = getDailyConsumption(ds2);
+          ns += cons.newOut;
+          rs += cons.regenOut;
+          const del = getDeliveryForDate(ds2);
+          if (del === 'new') ns -= getDeliveryQty('new');
+          if (del === 'regen') rs -= getDeliveryQty('regen');
+        }
       }
       return { ns: Math.max(0, ns), rs: Math.max(0, rs), isPast: true };
     }
