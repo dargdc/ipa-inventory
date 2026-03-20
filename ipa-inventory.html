@@ -1180,7 +1180,7 @@ function renderHolidays() {
 
 // ===== TABS =====
 // ===== PAGE SWITCH =====
-function switchPage(name) {
+window.switchPage = function(name) {
   ['main','calendar','history','more'].forEach(p => {
     document.getElementById('page-'+p).classList.toggle('active', p === name);
     document.getElementById('nav-'+p).classList.toggle('active', p === name);
@@ -1190,8 +1190,8 @@ function switchPage(name) {
   if (name === 'calendar') renderCalendar();
 }
 
-// 旧openTab互換（設定ボタンなどから呼ばれる場合）
-function openTab(name) {
+// 旧openTab互換
+window.openTab = function(name) {
   if (name === 'settings' || name === 'holidays') switchPage('more');
   else if (name === 'history') switchPage('history');
   else if (name === 'calendar') switchPage('calendar');
@@ -1222,6 +1222,26 @@ async function resetAll() {
 // Close modals on overlay click
 document.getElementById('addModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
 document.getElementById('dayModal').addEventListener('click', function(e) { if (e.target === this) closeDayModal(); });
+
+// onclick から呼ばれる関数を全部 window に明示登録
+window.openAddModal = openAddModal;
+window.closeModal = closeModal;
+window.saveModalEntry = saveModalEntry;
+window.openDayModal = openDayModal;
+window.closeDayModal = closeDayModal;
+window.saveDayOverride = saveDayOverride;
+window.clearDayOverride = clearDayOverride;
+window.recordToday = recordToday;
+window.setCurrentWeekCan = setCurrentWeekCan;
+window.prevMonth = prevMonth;
+window.nextMonth = nextMonth;
+window.saveSettings = saveSettings;
+window.exportData = exportData;
+window.resetAll = resetAll;
+window.deleteLog = deleteLog;
+window.clearHistory = clearHistory;
+window.addHolidayPeriod = addHolidayPeriod;
+window.deleteHoliday = deleteHoliday;
 </script>
 </body>
 </html>
