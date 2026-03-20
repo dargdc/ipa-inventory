@@ -738,9 +738,9 @@ function getDeliveryQty(canType) {
 }
 
 function projectStocks(days) {
-  let ns = state.newStock;
+  let ns = state.newStock; // 今日時点の実在庫（今日分のlog適用済み）
   let rs = state.regenStock;
-  const newStocks = [ns]; // index=0は今日の実在庫（引く前）
+  const newStocks = [ns]; // index=0 = 今日
   const regenStocks = [rs];
   const t = today();
   t.setHours(0,0,0,0);
@@ -749,9 +749,10 @@ function projectStocks(days) {
     d.setDate(t.getDate() + i);
     const ds = toDateStr(d);
 
-    // その日の実績ログがあれば使う
+    // 翌日以降：実績ログがあればそれを使い、なければ予測
     const dayLogs = state.log.filter(l => l.date === ds);
     if (dayLogs.length > 0) {
+      // 入荷ログ
       for (const l of dayLogs) {
         if (l.canType === 'new') {
           if (l.direction === 'in') ns += l.qty;
@@ -1046,7 +1047,6 @@ function recordToday() {
   const regenOut = parseInt(document.getElementById('quickRegenOut').value) || 0;
   const note = document.getElementById('quickNote').value.trim();
   const ds = todayStr();
-
   if (newOut > 0) {
     state.log.push({ date: ds, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' });
     state.newStock = Math.max(0, state.newStock - newOut);
@@ -1076,9 +1076,9 @@ function saveModalEntry() {
   const qty = parseInt(document.getElementById('modalQty').value) || 0;
   const note = document.getElementById('modalNote').value.trim();
   if (!date || qty <= 0) { alert('日付と缶数を入力してください'); return; }
-
   const [canType, direction] = type.split('-');
   state.log.push({ date, canType, direction, qty, note });
+  // 今日分のみ実在庫を即時更新（過去・未来はlogから計算するため不要）
   if (date === todayStr()) {
     if (canType === 'new') state.newStock = Math.max(0, state.newStock + (direction === 'in' ? qty : -qty));
     else state.regenStock = Math.max(0, state.regenStock + (direction === 'in' ? qty : -qty));
