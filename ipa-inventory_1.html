@@ -1,0 +1,1314 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>IPA缶 在庫管理</title>
+<style>
+:root {
+  --bg: #f5f4f0;
+  --surface: #ffffff;
+  --surface2: #f0eeea;
+  --border: rgba(0,0,0,0.1);
+  --border2: rgba(0,0,0,0.18);
+  --text: #1a1a18;
+  --text2: #5f5e5a;
+  --text3: #9c9a92;
+  --blue: #185fa5;
+  --blue-bg: #e6f1fb;
+  --blue-light: #b5d4f4;
+  --teal: #0f6e56;
+  --teal-bg: #e1f5ee;
+  --teal-light: #9fe1cb;
+  --amber: #854f0b;
+  --amber-bg: #faeeda;
+  --amber-light: #fac775;
+  --red: #a32d2d;
+  --red-bg: #fcebeb;
+  --red-light: #f7c1c1;
+  --green: #3b6d11;
+  --green-bg: #eaf3de;
+  --radius: 10px;
+  --radius-lg: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1a;
+    --surface: #272725;
+    --surface2: #2e2e2b;
+    --border: rgba(255,255,255,0.1);
+    --border2: rgba(255,255,255,0.18);
+    --text: #e8e6df;
+    --text2: #a8a69e;
+    --text3: #6e6c65;
+    --blue: #85b7eb;
+    --blue-bg: #0c3a63;
+    --blue-light: #185fa5;
+    --teal: #5dcaa5;
+    --teal-bg: #054033;
+    --teal-light: #0f6e56;
+    --amber: #ef9f27;
+    --amber-bg: #4a2a04;
+    --amber-light: #854f0b;
+    --red: #f09595;
+    --red-bg: #4a1515;
+    --red-light: #a32d2d;
+    --green: #97c459;
+    --green-bg: #1a3a06;
+  }
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Kaku Gothic ProN','Hiragino Sans','Yu Gothic',sans-serif;background:var(--bg);color:var(--text);font-size:16px;line-height:1.6;min-height:100vh;padding-bottom:72px}
+h1{font-size:20px;font-weight:700;letter-spacing:-0.01em}
+h2{font-size:17px;font-weight:600}
+
+/* ===== レイアウト ===== */
+.app{max-width:640px;margin:0 auto}
+.page{display:none;padding:14px 14px 20px}
+.page.active{display:block}
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;gap:10px;flex-wrap:wrap}
+.header-left{display:flex;align-items:center;gap:12px}
+.logo{width:40px;height:40px;background:var(--blue-bg);border:0.5px solid var(--blue-light);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0}
+.today-badge{font-size:13px;color:var(--text2);background:var(--surface2);border:0.5px solid var(--border);border-radius:8px;padding:3px 9px}
+
+/* ===== ボトムナビ ===== */
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;height:64px;background:var(--surface);border-top:0.5px solid var(--border2);display:flex;z-index:50;max-width:640px;margin:0 auto}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:none;background:none;color:var(--text3);cursor:pointer;font-family:inherit;padding:6px 0;transition:color .15s}
+.nav-btn.active{color:var(--blue)}
+.nav-icon{font-size:22px;line-height:1}
+.nav-label{font-size:10px;font-weight:600;letter-spacing:0.02em}
+
+/* ===== 在庫カード ===== */
+.stock-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+.stock-card{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px}
+.stock-card.new-can{border-left:4px solid var(--blue)}
+.stock-card.regen-can{border-left:4px solid var(--teal)}
+.stock-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:4px}
+.can-badge{font-size:13px;font-weight:700;padding:3px 9px;border-radius:6px}
+.can-badge.new{background:var(--blue-bg);color:var(--blue)}
+.can-badge.regen{background:var(--teal-bg);color:var(--teal)}
+.stock-count{font-size:44px;font-weight:700;line-height:1;letter-spacing:-0.02em}
+.stock-count.new{color:var(--blue)}
+.stock-count.regen{color:var(--teal)}
+.stock-unit{font-size:15px;color:var(--text2);margin-left:3px}
+.stock-sub{font-size:12px;color:var(--text3);margin-top:5px}
+.alert-row{display:flex;align-items:center;gap:5px;margin-top:8px;font-size:13px;padding:7px 9px;border-radius:8px;font-weight:500}
+.alert-row.warn{background:var(--amber-bg);color:var(--amber)}
+.alert-row.danger{background:var(--red-bg);color:var(--red)}
+.alert-row.ok{background:var(--green-bg);color:var(--green)}
+
+/* ===== コントロール ===== */
+.controls-area{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:16px}
+.controls-title{font-size:11px;font-weight:700;color:var(--text2);margin-bottom:12px;text-transform:uppercase;letter-spacing:0.08em}
+.control-row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.ctrl-group{display:flex;flex-direction:column;gap:5px}
+.ctrl-group label{font-size:13px;color:var(--text2);font-weight:600}
+.ctrl-group input,.ctrl-group select{background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:10px 12px;font-size:16px;color:var(--text);width:100px;outline:none;transition:border-color .15s;font-family:inherit}
+.ctrl-group input:focus,.ctrl-group select:focus{border-color:var(--blue)}
+.ctrl-group select{width:auto;min-width:120px;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%239c9a92'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;cursor:pointer}
+.btn{padding:11px 16px;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface);color:var(--text);font-size:15px;font-weight:600;cursor:pointer;transition:background .15s,transform .1s;white-space:nowrap;font-family:inherit}
+.btn:hover{background:var(--surface2)}
+.btn:active{transform:scale(0.97)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{background:#0c4479;color:#fff}
+.btn-sm{padding:7px 13px;font-size:14px}
+.btn-danger{background:var(--red-bg);color:var(--red);border-color:var(--red-light)}
+.divider{height:1px;background:var(--border);margin:13px 0}
+
+/* ===== 入荷トグル ===== */
+.schedule-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.week-toggle{display:flex;border:0.5px solid var(--border2);border-radius:10px;overflow:hidden}
+.week-toggle button{padding:9px 16px;background:none;border:none;color:var(--text2);font-size:15px;font-weight:500;cursor:pointer;transition:background .15s,color .15s;font-family:inherit}
+.week-toggle button.active-new{background:var(--blue-bg);color:var(--blue);font-weight:700}
+.week-toggle button.active-regen{background:var(--teal-bg);color:var(--teal);font-weight:700}
+
+/* ===== カレンダー ===== */
+.cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.cal-table{width:100%;border-collapse:collapse}
+.cal-table th{text-align:center;padding:5px 1px;color:var(--text3);font-weight:600;font-size:12px}
+.cal-table th.weekend-sun{color:#c0392b}
+.cal-table th.weekend-sat{color:#2980b9}
+.cal-table th.hide-weekend,.cal-table td.hide-weekend{display:none}
+.cal-table td{padding:2px;vertical-align:top;width:14.28%}
+.cal-day{min-height:68px;border-radius:7px;padding:4px 3px;border:0.5px solid transparent;cursor:pointer;transition:background .1s,border-color .1s}
+.cal-day:hover{background:var(--surface2);border-color:var(--border)}
+.cal-day.today{border-color:var(--blue);background:var(--blue-bg)}
+.cal-day.past{opacity:0.6}
+.cal-day.other-month{opacity:0.2}
+.cal-day.weekend{background:var(--surface2)}
+.cal-day.weekend.today{background:var(--blue-bg)}
+.day-num{font-size:12px;font-weight:700;color:var(--text2);margin-bottom:2px}
+.day-num-sun{color:#c0392b}
+.day-num-sat{color:#2980b9}
+.cal-day.today .day-num{color:var(--blue)}
+.can-dot{font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.can-dot.new-val{color:var(--blue)}
+.can-dot.regen-val{color:var(--teal)}
+.can-dot.past-val{opacity:0.75}
+.can-dot.rest-day{font-size:9px;color:var(--text3);font-style:italic}
+.can-dot.delivery{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;display:inline-block;margin-top:1px}
+.can-dot.delivery-new{background:var(--blue-bg);color:var(--blue)}
+.can-dot.delivery-regen{background:var(--teal-bg);color:var(--teal)}
+.day-stock-low .can-dot.new-val{color:var(--amber)}
+.day-stock-crit .can-dot.new-val{color:var(--red)}
+.day-stock-low-r .can-dot.regen-val{color:var(--amber)}
+.day-stock-crit-r .can-dot.regen-val{color:var(--red)}
+.day-holiday{background:color-mix(in srgb,var(--surface2) 80%,transparent)}
+.holiday-mark{font-size:9px;color:var(--text3);margin-bottom:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.legend{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--text2);margin-bottom:10px}
+.legend-item{display:flex;align-items:center;gap:4px}
+.legend-dot{width:9px;height:9px;border-radius:2px;flex-shrink:0}
+.legend-dot.new{background:var(--blue)}
+.legend-dot.regen{background:var(--teal)}
+.legend-dot.del-n{background:var(--blue-bg);border:1.5px solid var(--blue-light)}
+.legend-dot.del-r{background:var(--teal-bg);border:1.5px solid var(--teal-light)}
+.legend-dot.rest{background:var(--surface2);border:1px solid var(--border2)}
+
+/* PC向けカレンダー強化 */
+@media(min-width:600px){
+  .cal-table{font-size:13px}
+  .cal-table th{font-size:13px;padding:7px 3px}
+  .cal-table td{padding:3px}
+  .cal-day{min-height:82px;padding:6px 5px;border-radius:9px}
+  .day-num{font-size:14px;font-weight:800;margin-bottom:4px}
+  .can-dot{font-size:12px;line-height:1.5;font-weight:600}
+  .can-dot.delivery{font-size:11px;padding:2px 5px}
+  .can-dot.rest-day{font-size:11px}
+  .holiday-mark{font-size:11px}
+}
+
+/* ===== 履歴 ===== */
+.log-list{display:flex;flex-direction:column;gap:8px}
+.log-item{background:var(--surface2);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;font-size:14px;flex-wrap:wrap}
+.log-date{color:var(--text3);min-width:76px;font-size:13px}
+.log-type{font-weight:700;min-width:60px}
+.log-type.new{color:var(--blue)}
+.log-type.regen{color:var(--teal)}
+.log-delta{font-weight:700;min-width:40px;text-align:right;font-size:15px}
+.log-delta.plus{color:var(--green)}
+.log-delta.minus{color:var(--red)}
+.log-note{color:var(--text2);flex:1;font-size:13px}
+.log-del{margin-left:auto;color:var(--text3);cursor:pointer;font-size:13px;opacity:0.5;padding:4px 8px;border-radius:6px;border:none;background:none;font-family:inherit}
+.log-del:hover{opacity:1;background:var(--red-bg);color:var(--red)}
+
+/* ===== メニュー画面 ===== */
+.menu-section{background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius-lg);padding:16px;margin-bottom:14px}
+.menu-section-title{font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.07em;margin-bottom:14px}
+
+/* ===== 設定 ===== */
+.settings-row{display:flex;flex-direction:column}
+.setting-item{display:flex;align-items:center;justify-content:space-between;padding:13px 0;border-bottom:0.5px solid var(--border)}
+.setting-item:last-child{border-bottom:none}
+.setting-label{font-size:15px}
+.setting-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.setting-control{display:flex;align-items:center;gap:8px}
+.setting-control input{width:72px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:8px;padding:7px 10px;font-size:15px;color:var(--text);text-align:right;outline:none;font-family:inherit}
+.setting-control input:focus{border-color:var(--blue)}
+
+/* ===== モーダル ===== */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:100;align-items:center;justify-content:center;padding:16px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);border:0.5px solid var(--border2);padding:22px;width:100%;max-width:380px;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:17px;font-weight:700;margin-bottom:16px}
+.modal-field{margin-bottom:14px}
+.modal-field label{display:block;font-size:13px;color:var(--text2);margin-bottom:6px;font-weight:600}
+.modal-field input,.modal-field select,.modal-field textarea{width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:16px;color:var(--text);outline:none;font-family:inherit}
+.modal-field input:focus,.modal-field select:focus,.modal-field textarea:focus{border-color:var(--blue)}
+.modal-field textarea{min-height:64px;resize:vertical}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;flex-wrap:wrap}
+
+.empty-state{text-align:center;padding:32px;color:var(--text3);font-size:15px}
+</style>
+</head>
+<body>
+<!-- ===== ページコンテナ ===== -->
+<div class="app">
+
+  <!-- ===== メイン画面 ===== -->
+  <div class="page active" id="page-main">
+    <div class="page-header">
+      <div class="header-left">
+        <div class="logo">🧪</div>
+        <div>
+          <h1>IPA缶 在庫管理</h1>
+          <div class="today-badge" id="todayLabel"></div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <button class="btn btn-primary" onclick="openAddModal()">＋ 記録</button>
+        <span id="syncStatus" style="font-size:11px;color:var(--text3)"></span>
+      </div>
+    </div>
+
+    <!-- 在庫カード -->
+    <div class="stock-grid">
+      <div class="stock-card new-can">
+        <div class="stock-header">
+          <span class="can-badge new">新液缶</span>
+          <span class="today-badge" id="newNextDelivery" style="font-size:11px"></span>
+        </div>
+        <div>
+          <span class="stock-count new" id="newStock">—</span>
+          <span class="stock-unit">缶</span>
+        </div>
+        <div class="stock-sub" id="newDaysLeft"></div>
+        <div id="newAlert"></div>
+      </div>
+      <div class="stock-card regen-can">
+        <div class="stock-header">
+          <span class="can-badge regen">再生缶</span>
+          <span class="today-badge" id="regenNextDelivery" style="font-size:11px"></span>
+        </div>
+        <div>
+          <span class="stock-count regen" id="regenStock">—</span>
+          <span class="stock-unit">缶</span>
+        </div>
+        <div class="stock-sub" id="regenDaysLeft"></div>
+        <div id="regenAlert"></div>
+      </div>
+    </div>
+
+    <!-- クイック記録 -->
+    <div class="controls-area">
+      <div class="controls-title">本日の出庫を記録</div>
+      <div class="control-row">
+        <div class="ctrl-group">
+          <label>新液缶</label>
+          <input type="number" id="quickNewOut" value="2" min="0" max="99">
+        </div>
+        <div class="ctrl-group">
+          <label>再生缶</label>
+          <input type="number" id="quickRegenOut" value="2" min="0" max="99">
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:120px">
+          <label>メモ（任意）</label>
+          <input type="text" id="quickNote" placeholder="例：作業なし" style="width:100%">
+        </div>
+        <button class="btn btn-primary" onclick="recordToday()" style="align-self:flex-end">記録</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== カレンダー画面 ===== -->
+  <div class="page" id="page-calendar">
+    <div class="page-header">
+      <h2>カレンダー</h2>
+    </div>
+    <div class="cal-header">
+      <button class="btn btn-sm" onclick="prevMonth()">‹ 前月</button>
+      <h2 id="calMonthTitle"></h2>
+      <button class="btn btn-sm" onclick="nextMonth()">次月 ›</button>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot new"></div>新液缶</div>
+      <div class="legend-item"><div class="legend-dot regen"></div>再生缶</div>
+      <div class="legend-item"><div class="legend-dot del-n"></div>新入荷</div>
+      <div class="legend-item"><div class="legend-dot del-r"></div>再入荷</div>
+      <div class="legend-item"><div class="legend-dot rest"></div>休業日</div>
+    </div>
+    <div id="calendarContainer"></div>
+  </div>
+
+  <!-- ===== 履歴画面 ===== -->
+  <div class="page" id="page-history">
+    <div class="page-header">
+      <h2>入出庫履歴</h2>
+      <button class="btn btn-sm btn-danger" onclick="clearHistory()">消去</button>
+    </div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <!-- ===== サブメニュー画面 ===== -->
+  <div class="page" id="page-more">
+    <div class="page-header">
+      <h2>メニュー</h2>
+    </div>
+
+    <!-- 使い方 -->
+    <div class="menu-section">
+      <div class="menu-section-title">📖 使い方</div>
+      <div style="font-size:14px;color:var(--text2);line-height:1.9;padding:4px 0">
+        ① 毎日の出庫数を入力して「記録」を押す<br>
+        ② 入荷があった日は「＋ 記録」から日付・入荷数を入力<br>
+        ③ 作業なし日はカレンダーの日付をタップして出庫数を 0 に設定<br>
+        ④ 入荷記録をもとに翌週以降の入荷予測が自動で切り替わる<br>
+        ⑤ 長期休暇は「休日設定」で期間まとめて登録
+      </div>
+    </div>
+
+    <!-- 休日設定 -->
+    <div class="menu-section">
+      <div class="menu-section-title">🏖 休日・長期休暇の設定</div>
+      <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:10px">
+        <div class="ctrl-group">
+          <label>開始日</label>
+          <input type="date" id="holidayStart" style="width:148px;font-size:15px">
+        </div>
+        <div class="ctrl-group">
+          <label>終了日</label>
+          <input type="date" id="holidayEnd" style="width:148px;font-size:15px">
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:140px">
+          <label>名称</label>
+          <input type="text" id="holidayName" placeholder="例：GW、夏季休暇" style="width:100%;font-size:15px;background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);outline:none;font-family:inherit">
+        </div>
+        <button class="btn btn-primary" onclick="addHolidayPeriod()">登録</button>
+      </div>
+      <div style="font-size:12px;color:var(--text3);margin-bottom:12px">※ 期間中は出庫・入荷が自動で0になります</div>
+      <div id="holidayList"></div>
+    </div>
+
+    <!-- 設定 -->
+    <div class="menu-section">
+      <div class="menu-section-title">⚙ 設定</div>
+      <div class="settings-row" id="settingsContainer"></div>
+      <div class="divider" style="margin:16px 0"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="saveSettings()">設定を保存</button>
+        <button class="btn" onclick="exportData()">エクスポート</button>
+        <button class="btn btn-danger" onclick="resetAll()">リセット</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== ボトムナビ ===== -->
+<nav class="bottom-nav">
+  <button class="nav-btn active" id="nav-main" onclick="switchPage('main')">
+    <span class="nav-icon">🏠</span>
+    <span class="nav-label">ホーム</span>
+  </button>
+  <button class="nav-btn" id="nav-calendar" onclick="switchPage('calendar')">
+    <span class="nav-icon">📅</span>
+    <span class="nav-label">カレンダー</span>
+  </button>
+  <button class="nav-btn" id="nav-history" onclick="switchPage('history')">
+    <span class="nav-icon">📋</span>
+    <span class="nav-label">履歴</span>
+  </button>
+  <button class="nav-btn" id="nav-more" onclick="switchPage('more')">
+    <span class="nav-icon">☰</span>
+    <span class="nav-label">メニュー</span>
+  </button>
+</nav>
+
+<!-- Add modal -->
+<div class="modal-overlay" id="addModal">
+  <div class="modal" style="max-width:420px">
+    <div class="modal-title">入荷・出庫を記録</div>
+    <div class="modal-field">
+      <label>日付</label>
+      <input type="date" id="modalDate">
+    </div>
+    <div class="divider"></div>
+    <!-- 新液缶 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px">新液缶</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label>入荷数（缶）</label>
+          <input type="number" id="modalNewIn" value="0" min="0" max="999" style="width:90px">
+        </div>
+        <div class="ctrl-group">
+          <label>出庫数（缶）</label>
+          <input type="number" id="modalNewOut" value="0" min="0" max="999" style="width:90px">
+        </div>
+      </div>
+    </div>
+    <!-- 再生缶 -->
+    <div style="margin-bottom:14px">
+      <div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:10px">再生缶</div>
+      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label>入荷数（缶）</label>
+          <input type="number" id="modalRegenIn" value="0" min="0" max="999" style="width:90px">
+        </div>
+        <div class="ctrl-group">
+          <label>出庫数（缶）</label>
+          <input type="number" id="modalRegenOut" value="0" min="0" max="999" style="width:90px">
+        </div>
+      </div>
+    </div>
+    <div class="divider"></div>
+    <div class="modal-field">
+      <label>メモ（任意）</label>
+      <input type="text" id="modalNote" placeholder="例：定期入荷、緊急補充など" style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:16px;color:var(--text);outline:none;font-family:inherit">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveModalEntry()">記録する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Day detail modal -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal" style="max-width:380px">
+    <div class="modal-title" id="dayModalTitle"></div>
+    <div id="dayModalStatus" style="font-size:12px;padding:8px 10px;border-radius:7px;margin-bottom:12px;background:var(--surface2);color:var(--text2);line-height:1.5"></div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;border-radius:7px;border:0.5px solid var(--border)">
+      <b style="display:block;margin-bottom:4px;color:var(--text)">📌 この画面でできること</b>
+      作業なし日は出庫数を <b>0</b> に設定してください。<br>
+      設定した日以降のカレンダー予測が自動で更新されます。<br>
+      通常通りの場合は変更不要です。
+    </div>
+    <div class="modal-field">
+      <label>新液缶 出庫数（缶）</label>
+      <input type="number" id="dayNewOut" min="0" max="99" style="width:100%">
+    </div>
+    <div class="modal-field">
+      <label>再生缶 出庫数（缶）</label>
+      <input type="number" id="dayRegenOut" min="0" max="99" style="width:100%">
+    </div>
+    <div class="modal-field">
+      <label>備考（カレンダーに表示されます）</label>
+      <input type="text" id="dayNote" placeholder="例：作業なし、祝日、メンテナンス">
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="clearDayOverride()" id="clearOverrideBtn" style="margin-right:auto">設定を削除</button>
+      <button class="btn" onclick="closeDayModal()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveDayOverride()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== PAGE SWITCH (最初に定義してグローバル登録) =====
+function switchPage(name) {
+  ['main','calendar','history','more'].forEach(p => {
+    const pg = document.getElementById('page-'+p);
+    const nb = document.getElementById('nav-'+p);
+    if (pg) pg.classList.toggle('active', p === name);
+    if (nb) nb.classList.toggle('active', p === name);
+  });
+  if (name === 'history') renderHistory();
+  if (name === 'more') { renderHolidays(); renderSettings(); }
+  if (name === 'calendar') renderCalendar();
+}
+function openTab(name) {
+  if (name === 'settings' || name === 'holidays') switchPage('more');
+  else if (name === 'history') switchPage('history');
+  else if (name === 'calendar') switchPage('calendar');
+  else switchPage('main');
+}
+window.switchPage = switchPage;
+window.openTab = openTab;
+
+// ===== STATE =====
+const DB_KEY = 'ipa_mgr_v2';
+let state = {
+  newStock: 20,
+  regenStock: 20,
+  log: [],
+  holidays: [], // [{start, end, name}]
+  settings: {
+    defaultNewOut: 2,
+    defaultRegenOut: 2,
+    weeklyNewTarget: 9,
+    weeklyRegenTarget: 9,
+    currentWeekCan: 'new', // 'new', 'regen', 'none'
+    deliveryDayOfWeek: 1, // 0=Sun, 1=Mon
+    defaultDeliveryQty: 10,
+    newDeliveryQty: 10,
+    regenDeliveryQty: 10,
+    warnThreshold: 15,
+    dangerThreshold: 5,
+  },
+  dayOverrides: {}, // dateStr -> {newOut, regenOut, note}
+  viewMonth: null, // null = current
+};
+
+// ===== GAS連携 =====
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLzyWRLJ16PzhuxWFGdf4D2d40cYmHQhZLuxpUdomg2TobiShlgje4GmIfP4SJGyao/exec';
+
+function gasGet(params) {
+  const url = GAS_URL + '?' + Object.entries(params).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
+  return fetch(url).then(r => r.json());
+}
+
+function showSyncStatus(msg, color) {
+  const el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.textContent = msg;
+  el.style.color = color || 'var(--text3)';
+}
+
+async function load() {
+  // まずlocalStorageから即時反映（オフライン対応）
+  try {
+    const raw = localStorage.getItem(DB_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      state = Object.assign(state, saved);
+      state.settings = Object.assign({...state.settings}, saved.settings || {});
+      if (!state.dayOverrides) state.dayOverrides = {};
+      if (!state.holidays) state.holidays = [];
+    }
+  } catch(e) {}
+
+  // GASからクラウドデータを取得して上書き
+  showSyncStatus('☁ 同期中…');
+  try {
+    const res = await gasGet({ action: 'loadAll' });
+    if (res.payload) {
+      const saved = JSON.parse(res.payload);
+      state = Object.assign(state, saved);
+      state.settings = Object.assign({...state.settings}, saved.settings || {});
+      if (!state.dayOverrides) state.dayOverrides = {};
+      if (!state.holidays) state.holidays = [];
+      localStorage.setItem(DB_KEY, JSON.stringify(state));
+      showSyncStatus('☁ 同期済み', 'var(--green)');
+    } else {
+      showSyncStatus('☁ 新規データ', 'var(--text3)');
+    }
+  } catch(e) {
+    showSyncStatus('⚠ オフライン（ローカルデータを使用）', 'var(--amber)');
+  }
+  render();
+}
+
+async function save() {
+  // localStorageに即時保存
+  localStorage.setItem(DB_KEY, JSON.stringify(state));
+  // GASにも非同期保存
+  showSyncStatus('☁ 保存中…');
+  try {
+    await gasGet({ action: 'saveAll', payload: JSON.stringify(state) });
+    showSyncStatus('☁ 保存完了', 'var(--green)');
+  } catch(e) {
+    showSyncStatus('⚠ クラウド保存失敗（ローカルのみ）', 'var(--amber)');
+  }
+}
+
+function toDateStr(d) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dy = String(d.getDate()).padStart(2, '0');
+  return y + '-' + m + '-' + dy;
+}
+function today() {
+  return new Date();
+}
+function todayStr() {
+  return toDateStr(today());
+}
+
+// ===== CALENDAR NAV STATE (must be before render) =====
+var calYear = new Date().getFullYear();
+var calMonth = new Date().getMonth();
+
+// ===== INIT =====
+load(); // 非同期：GASから読み込んだ後にrender()を呼ぶ
+
+// ===== RENDER =====
+function render() {
+  updateHeader();
+  updateStockCards();
+  updateScheduleToggle();
+  renderCalendar();
+  renderHistory();
+  renderHolidays();
+  renderSettings();
+}
+
+function updateHeader() {
+  const t = today();
+  const days = ['日','月','火','水','木','金','土'];
+  document.getElementById('todayLabel').textContent =
+    `${t.getFullYear()}年${t.getMonth()+1}月${t.getDate()}日（${days[t.getDay()]}）`;
+}
+
+function updateStockCards() {
+  // Simulate forward from today to find next delivery dates
+  const warn = state.settings.warnThreshold;
+  const danger = state.settings.dangerThreshold;
+  const ns = state.newStock;
+  const rs = state.regenStock;
+
+  document.getElementById('newStock').textContent = ns;
+  document.getElementById('regenStock').textContent = rs;
+
+  // Find days until empty
+  const {newStocks, regenStocks} = projectStocks(60);
+  let newEmpty = null, regenEmpty = null;
+  for (let i = 0; i < newStocks.length; i++) {
+    if (newStocks[i] <= 0 && newEmpty === null) newEmpty = i;
+    if (regenStocks[i] <= 0 && regenEmpty === null) regenEmpty = i;
+  }
+  document.getElementById('newDaysLeft').textContent = newEmpty !== null ? `約${newEmpty}日後に在庫切れ予測` : '60日以上の在庫あり';
+  document.getElementById('regenDaysLeft').textContent = regenEmpty !== null ? `約${regenEmpty}日後に在庫切れ予測` : '60日以上の在庫あり';
+
+  function alertHtml(stock, warn, danger) {
+    if (stock <= danger) return `<div class="alert-row danger">⚠ 在庫危険水準（${stock}缶）</div>`;
+    if (stock <= warn) return `<div class="alert-row warn">⚡ 在庫注意（${stock}缶）</div>`;
+    return `<div class="alert-row ok">✓ 在庫正常</div>`;
+  }
+  document.getElementById('newAlert').innerHTML = alertHtml(ns, warn, danger);
+  document.getElementById('regenAlert').innerHTML = alertHtml(rs, warn, danger);
+
+  // Next delivery badges
+  const deliveries = getUpcomingDeliveries(30);
+  const nextNew = deliveries.find(d => d.type === 'new');
+  const nextRegen = deliveries.find(d => d.type === 'regen');
+  document.getElementById('newNextDelivery').textContent = nextNew ? `次回入荷：${formatDateShort(nextNew.date)}` : '';
+  document.getElementById('regenNextDelivery').textContent = nextRegen ? `次回入荷：${formatDateShort(nextRegen.date)}` : '';
+}
+
+function formatDateShort(d) {
+  const t = new Date(d + 'T00:00:00');
+  return `${t.getMonth()+1}/${t.getDate()}`;
+}
+
+function updateScheduleToggle() {
+  // トグル廃止：ログベースの自動判定に変更
+}
+
+function setCurrentWeekCan(type) {
+  state.settings.currentWeekCan = type;
+  save();
+  render();
+}
+
+// ===== PROJECTION =====
+function getWeekNumber(d) {
+  const t = new Date(d);
+  t.setHours(0,0,0,0);
+  const jan1 = new Date(t.getFullYear(), 0, 1);
+  return Math.ceil(((t - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+}
+
+function getLastDeliveryFromLog() {
+  const inLogs = state.log
+    .filter(l => l.direction === 'in')
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return inLogs.length > 0 ? inLogs[0] : null;
+}
+
+function getDeliveryForDate(dateStr) {
+  const _p = dateStr.split('-');
+  const d = new Date(parseInt(_p[0]), parseInt(_p[1])-1, parseInt(_p[2]));
+  // 休暇期間中は入荷なし
+  if (isHolidayDate(dateStr)) return null;
+  // 入荷曜日でなければnull
+  if (d.getDay() !== state.settings.deliveryDayOfWeek) return null;
+
+  // その日に実際の入荷ログがあればそれを優先表示
+  const dayInLogs = state.log.filter(l => l.date === dateStr && l.direction === 'in');
+  if (dayInLogs.length > 0) return dayInLogs[0].canType;
+
+  // ログから最終入荷を取得して隔週予測
+  const last = getLastDeliveryFromLog();
+  if (!last) {
+    // ログなし：設定のcurrentWeekCanにフォールバック
+    const cw = state.settings.currentWeekCan;
+    if (!cw || cw === 'none') return null;
+    const todayWeek = getWeekNumber(today());
+    const dWeek = getWeekNumber(d);
+    const weekDiff = dWeek - todayWeek;
+    const isEven = ((weekDiff % 2) + 2) % 2 === 0;
+    return isEven ? cw : (cw === 'new' ? 'regen' : 'new');
+  }
+
+  // 最終入荷日から対象日までの週差を計算
+  const lastParts = last.date.split('-');
+  const lastDate = new Date(parseInt(lastParts[0]), parseInt(lastParts[1])-1, parseInt(lastParts[2]));
+  const lastWeek = getWeekNumber(lastDate);
+  const dWeek = getWeekNumber(d);
+  const weekDiff = dWeek - lastWeek;
+
+  // 最終入荷と同じ週または過去は予測不要
+  if (weekDiff <= 0) return null;
+
+  // 奇数週差→逆の缶、偶数週差→同じ缶
+  const isOdd = weekDiff % 2 === 1;
+  return isOdd ? (last.canType === 'new' ? 'regen' : 'new') : last.canType;
+}
+
+function isHolidayDate(dateStr) {
+  return state.holidays.some(h => dateStr >= h.start && dateStr <= h.end);
+}
+function getHolidayName(dateStr) {
+  const h = state.holidays.find(h => dateStr >= h.start && dateStr <= h.end);
+  return h ? h.name : null;
+}
+
+function getDailyConsumption(dateStr) {
+  // 個別設定が優先
+  if (state.dayOverrides[dateStr]) {
+    const ov = state.dayOverrides[dateStr];
+    return {
+      newOut: ov.newOut !== undefined ? ov.newOut : state.settings.defaultNewOut,
+      regenOut: ov.regenOut !== undefined ? ov.regenOut : state.settings.defaultRegenOut,
+      isRest: ov.newOut === 0 && ov.regenOut === 0,
+    };
+  }
+  // 長期休暇期間は0
+  if (isHolidayDate(dateStr)) {
+    return { newOut: 0, regenOut: 0, isRest: true };
+  }
+  // 土日は自動で0（作業なし）
+  const _p = dateStr.split('-');
+  const dow = new Date(parseInt(_p[0]), parseInt(_p[1])-1, parseInt(_p[2])).getDay();
+  if (dow === 0 || dow === 6) {
+    return { newOut: 0, regenOut: 0, isRest: true };
+  }
+  return {
+    newOut: state.settings.defaultNewOut,
+    regenOut: state.settings.defaultRegenOut,
+    isRest: false,
+  };
+}
+
+function getDeliveryQty(canType) {
+  return canType === 'new' ? state.settings.newDeliveryQty : state.settings.regenDeliveryQty;
+}
+
+function projectStocks(days) {
+  let ns = state.newStock; // 今日時点の実在庫（今日分のlog適用済み）
+  let rs = state.regenStock;
+  const newStocks = [ns]; // index=0 = 今日
+  const regenStocks = [rs];
+  const t = today();
+  t.setHours(0,0,0,0);
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(t);
+    d.setDate(t.getDate() + i);
+    const ds = toDateStr(d);
+
+    // 翌日以降：実績ログがあればそれを使い、なければ予測
+    const dayLogs = state.log.filter(l => l.date === ds);
+    if (dayLogs.length > 0) {
+      // 入荷ログ
+      for (const l of dayLogs) {
+        if (l.canType === 'new') {
+          if (l.direction === 'in') ns += l.qty;
+          else ns -= l.qty;
+        } else {
+          if (l.direction === 'in') rs += l.qty;
+          else rs -= l.qty;
+        }
+      }
+    } else {
+      // 予測：入荷 → 出庫の順
+      const del = getDeliveryForDate(ds);
+      if (del === 'new') ns += getDeliveryQty('new');
+      if (del === 'regen') rs += getDeliveryQty('regen');
+      const cons = getDailyConsumption(ds);
+      ns -= cons.newOut;
+      rs -= cons.regenOut;
+    }
+    ns = Math.max(0, ns);
+    rs = Math.max(0, rs);
+    newStocks.push(ns);
+    regenStocks.push(rs);
+  }
+  return { newStocks, regenStocks };
+}
+
+function getUpcomingDeliveries(days) {
+  const result = [];
+  const t = today();
+  for (let i = 1; i <= days; i++) {
+    const d = new Date(t);
+    d.setDate(t.getDate() + i);
+    const ds = toDateStr(d);
+    const del = getDeliveryForDate(ds);
+    if (del && del !== 'none') result.push({ date: ds, type: del });
+  }
+  return result;
+}
+
+// ===== CALENDAR =====
+function prevMonth() { calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } renderCalendar(); }
+function nextMonth() { calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } renderCalendar(); }
+
+function renderCalendar() {
+  const title = `${calYear}年${calMonth+1}月`;
+  document.getElementById('calMonthTitle').textContent = title;
+
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth+1, 0);
+  const startDow = firstDay.getDay(); // 0=Sun
+  const totalDays = lastDay.getDate();
+  const ts = todayStr();
+
+  // Project stocks for the whole period
+  const t = today();
+  // We project from today up to end of calMonth+1 month
+  const calEnd = new Date(calYear, calMonth+1, 0);
+  const daysAhead = Math.max(0, Math.ceil((calEnd - t) / 86400000)) + 5;
+  const { newStocks, regenStocks } = projectStocks(daysAhead + 2);
+
+  function getProjectedStock(dateStr) {
+    const parts = dateStr.split('-');
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+    const td = today();
+    td.setHours(0,0,0,0);
+    const diffDays = Math.round((d - td) / 86400000);
+    // 今日は実在庫
+    if (diffDays === 0) return { ns: state.newStock, rs: state.regenStock, isPast: false };
+    // 未来は予測
+    if (diffDays > 0 && diffDays < newStocks.length) {
+      return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
+    }
+    // 過去：今日の実在庫から逆方向に1日ずつ逆算
+    if (diffDays < 0) {
+      let ns = state.newStock;
+      let rs = state.regenStock;
+      // i=-1（昨日）からdiffDays（対象日）まで逆順に計算
+      for (let i = -1; i >= diffDays; i--) {
+        const dd = new Date(td);
+        dd.setDate(td.getDate() + i);
+        const ds2 = toDateStr(dd);
+        // その日のログがあれば逆適用（ログが実績）
+        const dayLogs = state.log.filter(l => l.date === ds2);
+        if (dayLogs.length > 0) {
+          for (const l of dayLogs) {
+            if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
+            else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
+          }
+        } else {
+          // ログなし：getDailyConsumptionで土日・休日・個別設定を考慮して逆算
+          const cons = getDailyConsumption(ds2);
+          ns += cons.newOut;
+          rs += cons.regenOut;
+          // 入荷も逆算（入荷日なら引く）
+          const del = getDeliveryForDate(ds2);
+          if (del === 'new') ns -= getDeliveryQty('new');
+          if (del === 'regen') rs -= getDeliveryQty('regen');
+        }
+      }
+      return { ns: Math.max(0, ns), rs: Math.max(0, rs), isPast: true };
+    }
+    return null;
+  }
+
+  const warn = state.settings.warnThreshold;
+  const danger = state.settings.dangerThreshold;
+
+  let html = '<table class="cal-table"><thead><tr>';
+  ['日','月','火','水','木','金','土'].forEach((d, i) => {
+    const isWE = i === 0 || i === 6;
+    const cls = (i === 0 ? 'weekend-sun' : i === 6 ? 'weekend-sat' : '') + (isWE ? ' hide-weekend' : '');
+    html += `<th class="${cls.trim()}">${d}</th>`;
+  });
+  html += '</tr></thead><tbody>';
+
+  let row = '<tr>';
+  for (let i = 0; i < startDow; i++) {
+    const pd = new Date(calYear, calMonth, -startDow + i + 1);
+    const pdow = pd.getDay();
+    const weClass = (pdow === 0 || pdow === 6) ? ' hide-weekend' : '';
+    row += `<td class="${weClass.trim()}"><div class="cal-day other-month past"><div class="day-num">${pd.getDate()}</div></div></td>`;
+  }
+
+  for (let day = 1; day <= totalDays; day++) {
+    const d = new Date(calYear, calMonth, day);
+    const ds = toDateStr(d);
+    const dow = d.getDay();
+    const isWeekend = dow === 0 || dow === 6;
+    const isPast = ds < ts;
+    const isToday = ds === ts;
+    const del = getDeliveryForDate(ds);
+    const proj = getProjectedStock(ds);
+    const ov = state.dayOverrides[ds];
+    const cons = getDailyConsumption(ds);
+    const isRest = cons.isRest;
+    const holidayName = getHolidayName(ds);
+
+    let classes = 'cal-day';
+    if (isToday) classes += ' today';
+    if (isPast) classes += ' past';
+    if (isWeekend && !ov && !holidayName) classes += ' weekend';
+    if (ov) classes += ' day-holiday';
+    if (holidayName) classes += ' day-holiday';
+
+    if (proj && !isRest) {
+      if (proj.ns <= danger) classes += ' day-stock-crit';
+      else if (proj.ns <= warn) classes += ' day-stock-low';
+      if (proj.rs <= danger) classes += ' day-stock-crit-r';
+      else if (proj.rs <= warn) classes += ' day-stock-low-r';
+    }
+
+    const numCls = dow === 0 ? 'day-num day-num-sun' : dow === 6 ? 'day-num day-num-sat' : 'day-num';
+    const tdClass = isWeekend ? 'hide-weekend' : '';
+    let innerHtml = `<div class="${numCls}">${day}</div>`;
+
+    if (holidayName) innerHtml += `<div class="holiday-mark">${holidayName}</div>`;
+    else if (ov && ov.note) innerHtml += `<div class="holiday-mark">${ov.note}</div>`;
+
+    if (isRest && !del && !isPast) {
+      innerHtml += `<div class="can-dot rest-day">休業日</div>`;
+    }
+
+    if (del === 'new') innerHtml += `<div class="can-dot delivery delivery-new">新+${getDeliveryQty('new')}</div>`;
+    if (del === 'regen') innerHtml += `<div class="can-dot delivery delivery-regen">再+${getDeliveryQty('regen')}</div>`;
+
+    if (proj) {
+      const pastCls = proj.isPast ? ' past-val' : '';
+      if (!isRest || del || proj.isPast) {
+        innerHtml += `<div class="can-dot new-val${pastCls}">新:${proj.ns}</div>`;
+        innerHtml += `<div class="can-dot regen-val${pastCls}">再:${proj.rs}</div>`;
+      }
+    }
+
+    row += `<td class="${tdClass}"><div class="${classes}" onclick="openDayModal('${ds}')">${innerHtml}</div></td>`;
+
+    if (dow === 6 && day < totalDays) {
+      html += row + '</tr>';
+      row = '<tr>';
+    }
+  }
+
+  // Fill remainder of last row
+  const lastDow = lastDay.getDay();
+  if (lastDow < 6) {
+    for (let i = lastDow + 1; i <= 6; i++) {
+      const weClass = (i === 0 || i === 6) ? 'hide-weekend' : '';
+      row += `<td class="${weClass}"><div class="cal-day other-month"><div class="day-num">${i - lastDow}</div></div></td>`;
+    }
+  }
+  html += row + '</tr></tbody></table>';
+  document.getElementById('calendarContainer').innerHTML = html;
+}
+
+// ===== HISTORY =====
+function renderHistory() {
+  const list = document.getElementById('logList');
+  if (!state.log || state.log.length === 0) {
+    list.innerHTML = '<div class="empty-state">履歴がありません</div>';
+    return;
+  }
+  const sorted = [...state.log].sort((a,b) => b.date.localeCompare(a.date));
+  list.innerHTML = sorted.map((l,i) => {
+    const idx = state.log.indexOf(l);
+    const typeLabel = l.canType === 'new' ? '新液缶' : '再生缶';
+    const typeClass = l.canType;
+    const delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
+    const deltaClass = l.direction === 'in' ? 'plus' : 'minus';
+    const d = new Date(l.date + 'T00:00:00');
+    const days = ['日','月','火','水','木','金','土'];
+    const dateStr = `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
+    return `<div class="log-item">
+      <span class="log-date">${dateStr}</span>
+      <span class="log-type ${typeClass}">${typeLabel}</span>
+      <span class="log-delta ${deltaClass}">${delta}缶</span>
+      <span class="log-note">${l.note || (l.direction === 'in' ? '入荷' : '出庫')}</span>
+      <button class="log-del" onclick="deleteLog(${idx})" title="削除">✕</button>
+    </div>`;
+  }).join('');
+}
+
+function deleteLog(idx) {
+  if (!confirm('この履歴を削除しますか？')) return;
+  state.log.splice(idx, 1);
+  save();
+  render();
+}
+
+function clearHistory() {
+  if (!confirm('全履歴を削除しますか？')) return;
+  state.log = [];
+  save();
+  render();
+}
+
+// ===== SETTINGS =====
+function renderSettings() {
+  const s = state.settings;
+  const container = document.getElementById('settingsContainer');
+  const rows = [
+    { label: '新液缶 デフォルト出庫数/日', sub: '通常日の出庫数', key: 'defaultNewOut' },
+    { label: '再生缶 デフォルト出庫数/日', sub: '通常日の出庫数', key: 'defaultRegenOut' },
+    { label: '新液缶 1回入荷数', sub: '定期入荷の缶数', key: 'newDeliveryQty' },
+    { label: '再生缶 1回入荷数', sub: '定期入荷の缶数', key: 'regenDeliveryQty' },
+    { label: '在庫注意レベル（缶）', sub: 'この数以下で警告', key: 'warnThreshold' },
+    { label: '在庫危険レベル（缶）', sub: 'この数以下で危険警告', key: 'dangerThreshold' },
+  ];
+  container.innerHTML = rows.map(r => `
+    <div class="setting-item">
+      <div><div class="setting-label">${r.label}</div><div class="setting-sub">${r.sub}</div></div>
+      <div class="setting-control">
+        <input type="number" id="setting_${r.key}" value="${s[r.key]}" min="0" max="999">
+        <span style="font-size:12px;color:var(--text3)">缶</span>
+      </div>
+    </div>
+  `).join('') + `
+    <div class="setting-item">
+      <div><div class="setting-label">現在在庫：新液缶</div><div class="setting-sub">現在の実棚数を入力</div></div>
+      <div class="setting-control">
+        <input type="number" id="setting_newStock" value="${state.newStock}" min="0" max="9999">
+        <span style="font-size:12px;color:var(--text3)">缶</span>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div><div class="setting-label">現在在庫：再生缶</div><div class="setting-sub">現在の実棚数を入力</div></div>
+      <div class="setting-control">
+        <input type="number" id="setting_regenStock" value="${state.regenStock}" min="0" max="9999">
+        <span style="font-size:12px;color:var(--text3)">缶</span>
+      </div>
+    </div>
+    <div class="setting-item">
+      <div><div class="setting-label">入荷曜日</div><div class="setting-sub">定期入荷の曜日</div></div>
+      <div class="setting-control">
+        <select id="setting_deliveryDow" style="min-width:80px">
+          ${['日','月','火','水','木','金','土'].map((d,i) =>
+            `<option value="${i}" ${state.settings.deliveryDayOfWeek === i ? 'selected' : ''}>${d}曜日</option>`
+          ).join('')}
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function saveSettings() {
+  const keys = ['defaultNewOut','defaultRegenOut','newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold'];
+  keys.forEach(k => {
+    const el = document.getElementById('setting_' + k);
+    if (el) state.settings[k] = parseInt(el.value) || 0;
+  });
+  const newStockEl = document.getElementById('setting_newStock');
+  const regenStockEl = document.getElementById('setting_regenStock');
+  if (newStockEl) state.newStock = parseInt(newStockEl.value) || 0;
+  if (regenStockEl) state.regenStock = parseInt(regenStockEl.value) || 0;
+  const dowEl = document.getElementById('setting_deliveryDow');
+  if (dowEl) state.settings.deliveryDayOfWeek = parseInt(dowEl.value);
+  save();
+  render();
+  alert('設定を保存しました');
+}
+
+// ===== QUICK RECORD =====
+async function recordToday() {
+  const newOut = parseInt(document.getElementById('quickNewOut').value) || 0;
+  const regenOut = parseInt(document.getElementById('quickRegenOut').value) || 0;
+  const note = document.getElementById('quickNote').value.trim();
+  const ds = todayStr();
+  const entries = [];
+  if (newOut > 0) {
+    const e = { date: ds, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' };
+    state.log.push(e);
+    state.newStock = Math.max(0, state.newStock - newOut);
+    entries.push(e);
+  }
+  if (regenOut > 0) {
+    const e = { date: ds, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' };
+    state.log.push(e);
+    state.regenStock = Math.max(0, state.regenStock - regenOut);
+    entries.push(e);
+  }
+  document.getElementById('quickNote').value = '';
+  save();
+  render();
+  // GASにも保存
+  for (const e of entries) {
+    try { await gasGet({ action: 'appendLog', row: JSON.stringify(e) }); } catch(err) {}
+  }
+}
+
+// ===== MODAL =====
+function openAddModal() {
+  document.getElementById('modalDate').value = todayStr();
+  document.getElementById('modalNewIn').value = 0;
+  document.getElementById('modalNewOut').value = 0;
+  document.getElementById('modalRegenIn').value = 0;
+  document.getElementById('modalRegenOut').value = 0;
+  document.getElementById('modalNote').value = '';
+  document.getElementById('addModal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('addModal').classList.remove('open');
+}
+async function saveModalEntry() {
+  const date = document.getElementById('modalDate').value;
+  const newIn = parseInt(document.getElementById('modalNewIn').value) || 0;
+  const newOut = parseInt(document.getElementById('modalNewOut').value) || 0;
+  const regenIn = parseInt(document.getElementById('modalRegenIn').value) || 0;
+  const regenOut = parseInt(document.getElementById('modalRegenOut').value) || 0;
+  const note = document.getElementById('modalNote').value.trim();
+  if (!date) { alert('日付を入力してください'); return; }
+  if (newIn === 0 && newOut === 0 && regenIn === 0 && regenOut === 0) {
+    alert('入荷数または出庫数を入力してください'); return;
+  }
+  const entries = [];
+  if (newIn > 0) entries.push({ date, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' });
+  if (newOut > 0) entries.push({ date, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' });
+  if (regenIn > 0) entries.push({ date, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' });
+  if (regenOut > 0) entries.push({ date, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' });
+  // stateに追加
+  for (const e of entries) {
+    state.log.push(e);
+    // 今日分のみ実在庫を即時更新
+    if (date === todayStr()) {
+      if (e.canType === 'new') state.newStock = Math.max(0, state.newStock + (e.direction === 'in' ? e.qty : -e.qty));
+      else state.regenStock = Math.max(0, state.regenStock + (e.direction === 'in' ? e.qty : -e.qty));
+    }
+  }
+  save();
+  render();
+  closeModal();
+  // GASのスプレッドシートにも保存
+  for (const e of entries) {
+    try {
+      await gasGet({ action: 'appendLog', row: JSON.stringify(e) });
+    } catch(err) {}
+  }
+}
+
+// ===== DAY MODAL =====
+let currentDayStr = null;
+function openDayModal(ds) {
+  currentDayStr = ds;
+  // ローカル時間で日付生成
+  const parts = ds.split('-');
+  const y = parseInt(parts[0]), mo = parseInt(parts[1]) - 1, day = parseInt(parts[2]);
+  const d = new Date(y, mo, day);
+  const dayNames = ['日','月','火','水','木','金','土'];
+  document.getElementById('dayModalTitle').textContent =
+    y + '年' + (mo+1) + '月' + day + '日（' + dayNames[d.getDay()] + '）の設定';
+
+  const ov = state.dayOverrides[ds] || {};
+  document.getElementById('dayNewOut').value = ov.newOut !== undefined ? ov.newOut : state.settings.defaultNewOut;
+  document.getElementById('dayRegenOut').value = ov.regenOut !== undefined ? ov.regenOut : state.settings.defaultRegenOut;
+  document.getElementById('dayNote').value = ov.note || '';
+  document.getElementById('clearOverrideBtn').style.display = state.dayOverrides[ds] ? '' : 'none';
+
+  // ステータス情報
+  const del = getDeliveryForDate(ds);
+  const t = today();
+  t.setHours(0,0,0,0);
+  const diffDays = Math.round((d - t) / 86400000);
+  const { newStocks, regenStocks } = projectStocks(Math.max(diffDays + 2, 2));
+  const projIdx = Math.min(diffDays, newStocks.length - 1);
+  let statusHtml = '';
+  if (del === 'new') statusHtml += '📦 新液缶の入荷予定日です<br>';
+  if (del === 'regen') statusHtml += '📦 再生缶の入荷予定日です<br>';
+  if (diffDays >= 0 && projIdx >= 0) {
+    statusHtml += '予測在庫：新液缶 <b>' + newStocks[projIdx] + '缶</b>　再生缶 <b>' + regenStocks[projIdx] + '缶</b>';
+  } else if (diffDays < 0) {
+    statusHtml += '過去の日付です（予測は表示されません）';
+  }
+  if (ov.note || ov.newOut !== undefined) statusHtml = '✏️ 個別設定あり：' + (ov.note || '出庫数変更') + '<br>' + statusHtml;
+  document.getElementById('dayModalStatus').innerHTML = statusHtml || '通常の出庫予測日です';
+
+  document.getElementById('dayModal').classList.add('open');
+}
+function closeDayModal() {
+  document.getElementById('dayModal').classList.remove('open');
+  currentDayStr = null;
+}
+function saveDayOverride() {
+  if (!currentDayStr) return;
+  const newOut = parseInt(document.getElementById('dayNewOut').value);
+  const regenOut = parseInt(document.getElementById('dayRegenOut').value);
+  const note = document.getElementById('dayNote').value.trim();
+  state.dayOverrides[currentDayStr] = { newOut: isNaN(newOut) ? 0 : newOut, regenOut: isNaN(regenOut) ? 0 : regenOut, note };
+  save();
+  closeDayModal();
+  render();
+}
+function clearDayOverride() {
+  if (!currentDayStr) return;
+  delete state.dayOverrides[currentDayStr];
+  save();
+  closeDayModal();
+  render();
+}
+
+// ===== HOLIDAYS =====
+function addHolidayPeriod() {
+  const start = document.getElementById('holidayStart').value;
+  const end = document.getElementById('holidayEnd').value;
+  const name = document.getElementById('holidayName').value.trim();
+  if (!start || !end) { alert('開始日と終了日を入力してください'); return; }
+  if (start > end) { alert('開始日は終了日より前にしてください'); return; }
+  if (!name) { alert('名称を入力してください'); return; }
+  if (!state.holidays) state.holidays = [];
+  state.holidays.push({ start, end, name });
+  state.holidays.sort((a, b) => a.start.localeCompare(b.start));
+  document.getElementById('holidayStart').value = '';
+  document.getElementById('holidayEnd').value = '';
+  document.getElementById('holidayName').value = '';
+  save();
+  render();
+}
+
+function deleteHoliday(idx) {
+  if (!confirm('「' + state.holidays[idx].name + '」を削除しますか？')) return;
+  state.holidays.splice(idx, 1);
+  save();
+  render();
+}
+
+function renderHolidays() {
+  const list = document.getElementById('holidayList');
+  if (!list) return;
+  if (!state.holidays || state.holidays.length === 0) {
+    list.innerHTML = '<div class="empty-state">登録された休日・長期休暇はありません</div>';
+    return;
+  }
+  list.innerHTML = '<div style="font-size:13px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:12px">登録済み一覧</div>' +
+    state.holidays.map((h, i) => {
+      const s = h.start.split('-');
+      const e = h.end.split('-');
+      const startStr = s[0] + '/' + s[1] + '/' + s[2];
+      const endStr = e[0] + '/' + e[1] + '/' + e[2];
+      // 日数計算
+      const diff = Math.round((new Date(h.end + 'T00:00:00') - new Date(h.start + 'T00:00:00')) / 86400000) + 1;
+      return `<div class="log-item" style="justify-content:space-between">
+        <div style="display:flex;flex-direction:column;gap:3px">
+          <span style="font-size:15px;font-weight:700;color:var(--text)">${h.name}</span>
+          <span style="font-size:13px;color:var(--text2)">${startStr} 〜 ${endStr}（${diff}日間）</span>
+        </div>
+        <button class="log-del" onclick="deleteHoliday(${i})" style="font-size:13px;opacity:0.7;padding:6px 10px">削除</button>
+      </div>`;
+    }).join('');
+}
+
+// ===== EXPORT =====
+function exportData() {
+  const json = JSON.stringify(state, null, 2);
+  const blob = new Blob([json], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `ipa_inventory_${todayStr()}.json`;
+  a.click();
+}
+
+async function resetAll() {
+  if (!confirm('全データを初期化します。クラウドのデータも消去されます。よろしいですか？')) return;
+  localStorage.removeItem(DB_KEY);
+  try {
+    await gasGet({ action: 'saveAll', payload: JSON.stringify({
+      newStock: 20, regenStock: 20, log: [], settings: state.settings, dayOverrides: {}
+    }) });
+  } catch(e) {}
+  location.reload();
+}
+
+// Close modals on overlay click
+document.getElementById('addModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+document.getElementById('dayModal').addEventListener('click', function(e) { if (e.target === this) closeDayModal(); });
+
+// onclick から呼ばれる関数を全部 window に明示登録
+window.openAddModal = openAddModal;
+window.closeModal = closeModal;
+window.saveModalEntry = saveModalEntry;
+window.openDayModal = openDayModal;
+window.closeDayModal = closeDayModal;
+window.saveDayOverride = saveDayOverride;
+window.clearDayOverride = clearDayOverride;
+window.recordToday = recordToday;
+window.prevMonth = prevMonth;
+window.nextMonth = nextMonth;
+window.saveSettings = saveSettings;
+window.exportData = exportData;
+window.resetAll = resetAll;
+window.deleteLog = deleteLog;
+window.clearHistory = clearHistory;
+window.addHolidayPeriod = addHolidayPeriod;
+window.deleteHoliday = deleteHoliday;
+</script>
+</body>
+</html>
