@@ -852,16 +852,15 @@ function renderCalendar() {
     if (diffDays > 0 && diffDays < newStocks.length) {
       return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
     }
-    // 過去：今日の実在庫から逆方向に1日ずつ逆算
+    // 過去：今日の実在庫から逆方向に1日ずつ逆算（対象日の出庫後を表示）
     if (diffDays < 0) {
       let ns = state.newStock;
       let rs = state.regenStock;
-      // i=-1（昨日）からdiffDays（対象日）まで逆順に計算
-      for (let i = -1; i >= diffDays; i--) {
+      // i=-1（昨日）から対象日の翌日まで逆算（対象日自体は含まない）
+      for (let i = -1; i > diffDays; i--) {
         const dd = new Date(td);
         dd.setDate(td.getDate() + i);
         const ds2 = toDateStr(dd);
-        // その日のログがあれば逆適用（ログが実績）
         const dayLogs = state.log.filter(l => l.date === ds2);
         if (dayLogs.length > 0) {
           for (const l of dayLogs) {
@@ -869,11 +868,9 @@ function renderCalendar() {
             else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
           }
         } else {
-          // ログなし：getDailyConsumptionで土日・休日・個別設定を考慮して逆算
           const cons = getDailyConsumption(ds2);
           ns += cons.newOut;
           rs += cons.regenOut;
-          // 入荷も逆算（入荷日なら引く）
           const del = getDeliveryForDate(ds2);
           if (del === 'new') ns -= getDeliveryQty('new');
           if (del === 'regen') rs -= getDeliveryQty('regen');
