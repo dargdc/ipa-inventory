@@ -679,7 +679,6 @@ function getWeekNumber(d) {
 }
 
 function getLastDeliveryFromLog() {
-  // ログから最新の入荷記録を取得して缶タイプと日付を返す
   const inLogs = state.log
     .filter(l => l.direction === 'in')
     .sort((a, b) => b.date.localeCompare(a.date));
@@ -693,7 +692,12 @@ function getDeliveryForDate(dateStr) {
   if (isHolidayDate(dateStr)) return null;
   // 入荷曜日でなければnull
   if (d.getDay() !== state.settings.deliveryDayOfWeek) return null;
-  // ログから最終入荷を取得して隔週判定
+
+  // その日に実際の入荷ログがあればそれを優先表示
+  const dayInLogs = state.log.filter(l => l.date === dateStr && l.direction === 'in');
+  if (dayInLogs.length > 0) return dayInLogs[0].canType;
+
+  // ログから最終入荷を取得して隔週予測
   const last = getLastDeliveryFromLog();
   if (!last) {
     // ログなし：設定のcurrentWeekCanにフォールバック
@@ -705,15 +709,19 @@ function getDeliveryForDate(dateStr) {
     const isEven = ((weekDiff % 2) + 2) % 2 === 0;
     return isEven ? cw : (cw === 'new' ? 'regen' : 'new');
   }
+
   // 最終入荷日から対象日までの週差を計算
   const lastParts = last.date.split('-');
   const lastDate = new Date(parseInt(lastParts[0]), parseInt(lastParts[1])-1, parseInt(lastParts[2]));
   const lastWeek = getWeekNumber(lastDate);
   const dWeek = getWeekNumber(d);
   const weekDiff = dWeek - lastWeek;
-  if (weekDiff === 0) return null; // 最終入荷と同じ週は入荷なし
+
+  // 最終入荷と同じ週または過去は予測不要
+  if (weekDiff <= 0) return null;
+
   // 奇数週差→逆の缶、偶数週差→同じ缶
-  const isOdd = Math.abs(weekDiff) % 2 === 1;
+  const isOdd = weekDiff % 2 === 1;
   return isOdd ? (last.canType === 'new' ? 'regen' : 'new') : last.canType;
 }
 
