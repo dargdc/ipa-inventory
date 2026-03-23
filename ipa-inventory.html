@@ -851,8 +851,14 @@ function renderCalendar() {
     // 過去：ログがある日だけ表示
     if (diffDays < 0) {
       const dayLogs = state.log.filter(l => l.date === dateStr);
-      if (dayLogs.length === 0) return null; // ログなし→表示しない
-      // 対象日より後のログを全て逆算（今日分も含む）
+      if (dayLogs.length === 0) return null;
+      // actualフィールドがあればそれを使う（実数入力した場合）
+      const newActual = dayLogs.find(l => l.canType === 'new' && l.actual !== undefined);
+      const regenActual = dayLogs.find(l => l.canType === 'regen' && l.actual !== undefined);
+      if (newActual && regenActual) {
+        return { ns: newActual.actual, rs: regenActual.actual, isPast: true };
+      }
+      // actualがない場合は逆算
       let ns = state.newStock;
       let rs = state.regenStock;
       const laterLogs = state.log.filter(l => l.date > dateStr);
@@ -1235,21 +1241,20 @@ async function saveDayOverride() {
     if (newVal !== '') {
       const newCount = parseInt(newVal);
       const diff = newCount - baseNew;
-      if (diff !== 0) {
-        const e = { date: ds, canType: 'new', direction: diff > 0 ? 'in' : 'out', qty: Math.abs(diff), note: note || (diff > 0 ? '入荷' : '出庫') };
-        state.log.push(e);
-        entries.push(e);
-      }
+      // diff=0でも記録（変化なしとして残す）
+      const direction = diff >= 0 ? 'in' : 'out';
+      const qty = Math.abs(diff) || 0;
+      const e = { date: ds, canType: 'new', direction: diff < 0 ? 'out' : 'in', qty: qty, note: note || (diff > 0 ? '入荷' : diff < 0 ? '出庫' : '変化なし'), actual: newCount };
+      state.log.push(e);
+      if (qty > 0) entries.push(e);
       if (diffDays === 0) state.newStock = newCount;
     }
     if (regenVal !== '') {
       const regenCount = parseInt(regenVal);
       const diff = regenCount - baseRegen;
-      if (diff !== 0) {
-        const e = { date: ds, canType: 'regen', direction: diff > 0 ? 'in' : 'out', qty: Math.abs(diff), note: note || (diff > 0 ? '入荷' : '出庫') };
-        state.log.push(e);
-        entries.push(e);
-      }
+      const e = { date: ds, canType: 'regen', direction: diff < 0 ? 'out' : 'in', qty: Math.abs(diff) || 0, note: note || (diff > 0 ? '入荷' : diff < 0 ? '出庫' : '変化なし'), actual: regenCount };
+      state.log.push(e);
+      if (Math.abs(diff) > 0) entries.push(e);
       if (diffDays === 0) state.regenStock = regenCount;
     }
     if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
