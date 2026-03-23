@@ -240,7 +240,6 @@ h2{font-size:17px;font-weight:600}
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
-        <button class="btn btn-primary" onclick="openAddModal()">＋ 記録</button>
         <span id="syncStatus" style="font-size:11px;color:var(--text3)"></span>
       </div>
     </div>
@@ -404,77 +403,45 @@ h2{font-size:17px;font-weight:600}
   </button>
 </nav>
 
-<!-- Add modal -->
-<div class="modal-overlay" id="addModal">
-  <div class="modal" style="max-width:420px">
-    <div class="modal-title">入荷・出庫を記録</div>
-    <div class="modal-field">
-      <label>日付</label>
-      <input type="date" id="modalDate">
-    </div>
-    <div class="divider"></div>
-    <!-- 新液缶 -->
-    <div style="margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px">新液缶</div>
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        <div class="ctrl-group">
-          <label>入荷数（缶）</label>
-          <input type="number" id="modalNewIn" value="0" min="0" max="999" style="width:90px">
-        </div>
-        <div class="ctrl-group">
-          <label>出庫数（缶）</label>
-          <input type="number" id="modalNewOut" value="0" min="0" max="999" style="width:90px">
-        </div>
-      </div>
-    </div>
-    <!-- 再生缶 -->
-    <div style="margin-bottom:14px">
-      <div style="font-size:13px;font-weight:700;color:var(--teal);margin-bottom:10px">再生缶</div>
-      <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
-        <div class="ctrl-group">
-          <label>入荷数（缶）</label>
-          <input type="number" id="modalRegenIn" value="0" min="0" max="999" style="width:90px">
-        </div>
-        <div class="ctrl-group">
-          <label>出庫数（缶）</label>
-          <input type="number" id="modalRegenOut" value="0" min="0" max="999" style="width:90px">
-        </div>
-      </div>
-    </div>
-    <div class="divider"></div>
-    <div class="modal-field">
-      <label>メモ（任意）</label>
-      <input type="text" id="modalNote" placeholder="例：定期入荷、緊急補充など" style="width:100%;background:var(--surface2);border:0.5px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:16px;color:var(--text);outline:none;font-family:inherit">
-    </div>
-    <div class="modal-actions">
-      <button class="btn" onclick="closeModal()">キャンセル</button>
-      <button class="btn btn-primary" onclick="saveModalEntry()">記録する</button>
-    </div>
-  </div>
-</div>
-
-<!-- Day detail modal -->
+<!-- Day modal - 統合入力 -->
 <div class="modal-overlay" id="dayModal">
-  <div class="modal" style="max-width:380px">
+  <div class="modal" style="max-width:400px">
     <div class="modal-title" id="dayModalTitle"></div>
-    <div id="dayModalStatus" style="font-size:12px;padding:8px 10px;border-radius:7px;margin-bottom:12px;background:var(--surface2);color:var(--text2);line-height:1.5"></div>
-    <div style="font-size:12px;color:var(--text2);margin-bottom:10px;padding:8px 10px;border-radius:7px;border:0.5px solid var(--border)">
-      <b style="display:block;margin-bottom:4px;color:var(--text)">📌 この画面でできること</b>
-      作業なし日は出庫数を <b>0</b> に設定してください。<br>
-      設定した日以降のカレンダー予測が自動で更新されます。<br>
-      通常通りの場合は変更不要です。
+    <div id="dayModalStatus" style="font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:14px;background:var(--surface2);color:var(--text2);line-height:1.6"></div>
+
+    <!-- 実数入力（今日・過去） -->
+    <div id="dayActualSection">
+      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px">棚の実際の缶数を入力</div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label style="color:var(--blue)">新液缶（現在数）</label>
+          <input type="number" id="dayNewActual" min="0" max="999" placeholder="缶数" style="width:120px">
+        </div>
+        <div class="ctrl-group">
+          <label style="color:var(--teal)">再生缶（現在数）</label>
+          <input type="number" id="dayRegenActual" min="0" max="999" placeholder="缶数" style="width:120px">
+        </div>
+      </div>
     </div>
-    <div class="modal-field">
-      <label>新液缶 出庫数（缶）</label>
-      <input type="number" id="dayNewOut" min="0" max="99" style="width:100%">
+
+    <!-- 予測設定（未来） -->
+    <div id="dayForecastSection" style="display:none">
+      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px">出庫予測の設定</div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label style="color:var(--blue)">新液缶 出庫数</label>
+          <input type="number" id="dayNewOut" min="0" max="99" style="width:120px">
+        </div>
+        <div class="ctrl-group">
+          <label style="color:var(--teal)">再生缶 出庫数</label>
+          <input type="number" id="dayRegenOut" min="0" max="99" style="width:120px">
+        </div>
+      </div>
     </div>
+
     <div class="modal-field">
-      <label>再生缶 出庫数（缶）</label>
-      <input type="number" id="dayRegenOut" min="0" max="99" style="width:100%">
-    </div>
-    <div class="modal-field">
-      <label>備考（カレンダーに表示されます）</label>
-      <input type="text" id="dayNote" placeholder="例：作業なし、祝日、メンテナンス">
+      <label>備考（カレンダーに表示）</label>
+      <input type="text" id="dayNote" placeholder="例：作業なし、入荷あり、祝日">
     </div>
     <div class="modal-actions">
       <button class="btn btn-danger btn-sm" onclick="clearDayOverride()" id="clearOverrideBtn" style="margin-right:auto">設定を削除</button>
@@ -1155,110 +1122,161 @@ async function recordToday() {
   }
 }
 
-// ===== MODAL =====
-function openAddModal() {
-  document.getElementById('modalDate').value = todayStr();
-  document.getElementById('modalNewIn').value = 0;
-  document.getElementById('modalNewOut').value = 0;
-  document.getElementById('modalRegenIn').value = 0;
-  document.getElementById('modalRegenOut').value = 0;
-  document.getElementById('modalNote').value = '';
-  document.getElementById('addModal').classList.add('open');
-}
-function closeModal() {
-  document.getElementById('addModal').classList.remove('open');
-}
-async function saveModalEntry() {
-  const date = document.getElementById('modalDate').value;
-  const newIn = parseInt(document.getElementById('modalNewIn').value) || 0;
-  const newOut = parseInt(document.getElementById('modalNewOut').value) || 0;
-  const regenIn = parseInt(document.getElementById('modalRegenIn').value) || 0;
-  const regenOut = parseInt(document.getElementById('modalRegenOut').value) || 0;
-  const note = document.getElementById('modalNote').value.trim();
-  if (!date) { alert('日付を入力してください'); return; }
-  if (newIn === 0 && newOut === 0 && regenIn === 0 && regenOut === 0) {
-    alert('入荷数または出庫数を入力してください'); return;
-  }
-  const entries = [];
-  if (newIn > 0) entries.push({ date, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' });
-  if (newOut > 0) entries.push({ date, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' });
-  if (regenIn > 0) entries.push({ date, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' });
-  if (regenOut > 0) entries.push({ date, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' });
-  // stateに追加
-  for (const e of entries) {
-    state.log.push(e);
-    // 今日分のみ実在庫を即時更新
-    if (date === todayStr()) {
-      if (e.canType === 'new') state.newStock = Math.max(0, state.newStock + (e.direction === 'in' ? e.qty : -e.qty));
-      else state.regenStock = Math.max(0, state.regenStock + (e.direction === 'in' ? e.qty : -e.qty));
-    }
-  }
-  save();
-  render();
-  closeModal();
-  // GASのスプレッドシートにも保存
-  for (const e of entries) {
-    try {
-      await gasGet({ action: 'appendLog', row: JSON.stringify(e) });
-    } catch(err) {}
-  }
-}
-
 // ===== DAY MODAL =====
 let currentDayStr = null;
 function openDayModal(ds) {
   currentDayStr = ds;
-  // ローカル時間で日付生成
   const parts = ds.split('-');
   const y = parseInt(parts[0]), mo = parseInt(parts[1]) - 1, day = parseInt(parts[2]);
   const d = new Date(y, mo, day);
   const dayNames = ['日','月','火','水','木','金','土'];
-  document.getElementById('dayModalTitle').textContent =
-    y + '年' + (mo+1) + '月' + day + '日（' + dayNames[d.getDay()] + '）の設定';
+  const td = today();
+  td.setHours(0,0,0,0);
+  const diffDays = Math.round((d - td) / 86400000);
+  const isPast = diffDays < 0;
+  const isToday = diffDays === 0;
+  const isFuture = diffDays > 0;
 
+  document.getElementById('dayModalTitle').textContent =
+    y + '年' + (mo+1) + '月' + day + '日（' + dayNames[d.getDay()] + '）';
+
+  // 過去・今日：実数入力セクションを表示
+  // 未来：予測設定セクションを表示
+  document.getElementById('dayActualSection').style.display = isFuture ? 'none' : '';
+  document.getElementById('dayForecastSection').style.display = isFuture ? '' : 'none';
+
+  // 既存ログがあれば表示
+  const dayLogs = state.log.filter(l => l.date === ds);
+  const newLog = dayLogs.filter(l => l.canType === 'new');
+  const regenLog = dayLogs.filter(l => l.canType === 'regen');
+
+  if (isToday) {
+    document.getElementById('dayNewActual').value = state.newStock;
+    document.getElementById('dayRegenActual').value = state.regenStock;
+  } else {
+    document.getElementById('dayNewActual').value = '';
+    document.getElementById('dayRegenActual').value = '';
+  }
+
+  // 未来の予測設定
   const ov = state.dayOverrides[ds] || {};
   document.getElementById('dayNewOut').value = ov.newOut !== undefined ? ov.newOut : state.settings.defaultNewOut;
   document.getElementById('dayRegenOut').value = ov.regenOut !== undefined ? ov.regenOut : state.settings.defaultRegenOut;
   document.getElementById('dayNote').value = ov.note || '';
-  document.getElementById('clearOverrideBtn').style.display = state.dayOverrides[ds] ? '' : 'none';
 
   // ステータス情報
   const del = getDeliveryForDate(ds);
-  const t = today();
-  t.setHours(0,0,0,0);
-  const diffDays = Math.round((d - t) / 86400000);
-  const { newStocks, regenStocks } = projectStocks(Math.max(diffDays + 2, 2));
-  const projIdx = Math.min(diffDays, newStocks.length - 1);
   let statusHtml = '';
-  if (del === 'new') statusHtml += '📦 新液缶の入荷予定日です<br>';
-  if (del === 'regen') statusHtml += '📦 再生缶の入荷予定日です<br>';
-  if (diffDays >= 0 && projIdx >= 0) {
-    statusHtml += '予測在庫：新液缶 <b>' + newStocks[projIdx] + '缶</b>　再生缶 <b>' + regenStocks[projIdx] + '缶</b>';
-  } else if (diffDays < 0) {
-    statusHtml += '過去の日付です（予測は表示されません）';
+  if (isPast) {
+    if (dayLogs.length > 0) {
+      statusHtml = '📝 記録あり：';
+      if (newLog.length > 0) statusHtml += '新液缶 ' + (newLog[0].direction === 'in' ? '+' : '-') + newLog[0].qty + '缶　';
+      if (regenLog.length > 0) statusHtml += '再生缶 ' + (regenLog[0].direction === 'in' ? '+' : '-') + regenLog[0].qty + '缶';
+    } else {
+      statusHtml = '記録なし。実際の缶数を入力してください。';
+    }
+  } else if (isToday) {
+    statusHtml = '今日の実際の缶数を入力してください。';
+    if (del === 'new') statusHtml += '<br>📦 新液缶の入荷日です';
+    if (del === 'regen') statusHtml += '<br>📦 再生缶の入荷日です';
+  } else {
+    if (del === 'new') statusHtml += '📦 新液缶の入荷予定日です<br>';
+    if (del === 'regen') statusHtml += '📦 再生缶の入荷予定日です<br>';
+    statusHtml += '作業なし日は出庫数を 0 に設定してください。';
   }
-  if (ov.note || ov.newOut !== undefined) statusHtml = '✏️ 個別設定あり：' + (ov.note || '出庫数変更') + '<br>' + statusHtml;
-  document.getElementById('dayModalStatus').innerHTML = statusHtml || '通常の出庫予測日です';
-
+  document.getElementById('dayModalStatus').innerHTML = statusHtml;
+  document.getElementById('clearOverrideBtn').style.display = (state.dayOverrides[ds] || dayLogs.length > 0) ? '' : 'none';
+  document.getElementById('clearOverrideBtn').textContent = dayLogs.length > 0 ? 'この日の記録を削除' : '設定を削除';
   document.getElementById('dayModal').classList.add('open');
 }
+
 function closeDayModal() {
   document.getElementById('dayModal').classList.remove('open');
   currentDayStr = null;
 }
-function saveDayOverride() {
+
+async function saveDayOverride() {
   if (!currentDayStr) return;
-  const newOut = parseInt(document.getElementById('dayNewOut').value);
-  const regenOut = parseInt(document.getElementById('dayRegenOut').value);
+  const ds = currentDayStr;
+  const parts = ds.split('-');
+  const d = new Date(parseInt(parts[0]), parseInt(parts[1])-1, parseInt(parts[2]));
+  const td = today();
+  td.setHours(0,0,0,0);
+  const diffDays = Math.round((d - td) / 86400000);
+  const isFuture = diffDays > 0;
   const note = document.getElementById('dayNote').value.trim();
-  state.dayOverrides[currentDayStr] = { newOut: isNaN(newOut) ? 0 : newOut, regenOut: isNaN(regenOut) ? 0 : regenOut, note };
+  const entries = [];
+
+  if (!isFuture) {
+    // 今日・過去：実数入力から差分計算
+    const newVal = document.getElementById('dayNewActual').value;
+    const regenVal = document.getElementById('dayRegenActual').value;
+
+    if (newVal === '' && regenVal === '') {
+      alert('缶数を入力してください'); return;
+    }
+
+    // 既存のその日のログを削除
+    state.log = state.log.filter(l => l.date !== ds);
+
+    // 差分計算の基準：前日までのログから推定
+    // 今日の場合はstate.newStockを基準
+    // 過去の場合はその日以降のログから逆算した値を基準
+    let baseNew = state.newStock;
+    let baseRegen = state.regenStock;
+    if (diffDays < 0) {
+      const laterLogs = state.log.filter(l => l.date > ds);
+      for (const l of laterLogs) {
+        if (l.canType === 'new') baseNew = l.direction === 'in' ? baseNew - l.qty : baseNew + l.qty;
+        else baseRegen = l.direction === 'in' ? baseRegen - l.qty : baseRegen + l.qty;
+      }
+    }
+
+    if (newVal !== '') {
+      const newCount = parseInt(newVal);
+      const diff = newCount - baseNew;
+      if (diff !== 0) {
+        const e = { date: ds, canType: 'new', direction: diff > 0 ? 'in' : 'out', qty: Math.abs(diff), note: note || (diff > 0 ? '入荷' : '出庫') };
+        state.log.push(e);
+        entries.push(e);
+      }
+      if (diffDays === 0) state.newStock = newCount;
+    }
+    if (regenVal !== '') {
+      const regenCount = parseInt(regenVal);
+      const diff = regenCount - baseRegen;
+      if (diff !== 0) {
+        const e = { date: ds, canType: 'regen', direction: diff > 0 ? 'in' : 'out', qty: Math.abs(diff), note: note || (diff > 0 ? '入荷' : '出庫') };
+        state.log.push(e);
+        entries.push(e);
+      }
+      if (diffDays === 0) state.regenStock = regenCount;
+    }
+    if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
+
+  } else {
+    // 未来：予測設定を保存
+    const newOut = parseInt(document.getElementById('dayNewOut').value);
+    const regenOut = parseInt(document.getElementById('dayRegenOut').value);
+    state.dayOverrides[ds] = { newOut: isNaN(newOut) ? 0 : newOut, regenOut: isNaN(regenOut) ? 0 : regenOut, note };
+  }
+
   save();
   closeDayModal();
   render();
+
+  // GASにも保存
+  for (const e of entries) {
+    try { await gasGet({ action: 'appendLog', row: JSON.stringify(e) }); } catch(err) {}
+  }
 }
+
 function clearDayOverride() {
   if (!currentDayStr) return;
+  // ログも削除
+  state.log = state.log.filter(l => l.date !== currentDayStr);
   delete state.dayOverrides[currentDayStr];
+  // 今日分の場合は在庫を再計算
   save();
   closeDayModal();
   render();
@@ -1340,9 +1358,9 @@ document.getElementById('addModal').addEventListener('click', function(e) { if (
 document.getElementById('dayModal').addEventListener('click', function(e) { if (e.target === this) closeDayModal(); });
 
 // onclick から呼ばれる関数を全部 window に明示登録
-window.openAddModal = openAddModal;
-window.closeModal = closeModal;
-window.saveModalEntry = saveModalEntry;
+window.openAddModal = openDayModal;
+window.closeModal = closeDayModal;
+window.saveModalEntry = saveDayOverride;
 window.openDayModal = openDayModal;
 window.closeDayModal = closeDayModal;
 window.saveDayOverride = saveDayOverride;
