@@ -885,10 +885,10 @@ function renderCalendar() {
     if (diffDays < 0) {
       const dayLogs = state.log.filter(l => l.date === dateStr);
       if (dayLogs.length === 0) return null; // ログなし→表示しない
-      // 対象日より後、今日より前のログだけ逆算（今日分はstockに反映済みなので除外）
+      // 対象日より後のログを全て逆算（今日分も含む）
       let ns = state.newStock;
       let rs = state.regenStock;
-      const laterLogs = state.log.filter(l => l.date > dateStr && l.date < todayStr());
+      const laterLogs = state.log.filter(l => l.date > dateStr);
       for (const l of laterLogs) {
         if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
         else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
