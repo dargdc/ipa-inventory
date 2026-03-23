@@ -277,21 +277,25 @@ h2{font-size:17px;font-weight:600}
     <!-- クイック記録 -->
     <div class="controls-area">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <div class="controls-title" style="margin-bottom:0">終業時の缶数を記録</div>
+        <div class="controls-title" style="margin-bottom:0">本日の記録</div>
         <div id="todayRecordStatus"></div>
-      </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--surface2);border-radius:8px;line-height:1.6">
-        📌 <b style="color:var(--text)">終業時に棚を数えた缶数</b>をそのまま入力してください<br>
-        入荷があった日も同じ。棚の実数を入力するだけでOKです。
       </div>
       <div class="control-row">
         <div class="ctrl-group">
-          <label>新液缶（終業時）</label>
-          <input type="number" id="quickNewOut" min="0" max="999" placeholder="缶数">
+          <label>新液缶 出庫</label>
+          <input type="number" id="quickNewOut" min="0" max="999" value="2">
         </div>
         <div class="ctrl-group">
-          <label>再生缶（終業時）</label>
-          <input type="number" id="quickRegenOut" min="0" max="999" placeholder="缶数">
+          <label>再生缶 出庫</label>
+          <input type="number" id="quickRegenOut" min="0" max="999" value="2">
+        </div>
+        <div class="ctrl-group">
+          <label>新液缶 入荷</label>
+          <input type="number" id="quickNewIn" min="0" max="999" value="0">
+        </div>
+        <div class="ctrl-group">
+          <label>再生缶 入荷</label>
+          <input type="number" id="quickRegenIn" min="0" max="999" value="0">
         </div>
         <div class="ctrl-group" style="flex:1;min-width:120px">
           <label>メモ（任意）</label>
@@ -433,14 +437,12 @@ h2{font-size:17px;font-weight:600}
 
 <!-- Day modal - 統合入力 -->
 <div class="modal-overlay" id="dayModal">
-  <div class="modal" style="max-width:420px">
+  <div class="modal" style="max-width:400px">
     <div class="modal-title" id="dayModalTitle"></div>
     <div id="dayModalStatus" style="font-size:13px;padding:8px 10px;border-radius:8px;margin-bottom:14px;background:var(--surface2);color:var(--text2);line-height:1.6"></div>
 
-    <!-- 実数入力（今日・過去） -->
+    <!-- 入荷・出庫入力（今日・過去） -->
     <div id="dayActualSection">
-      <!-- 入荷 -->
-      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px">📦 入荷数（0のままでOK）</div>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <div class="ctrl-group">
           <label style="color:var(--blue)">新液缶 入荷</label>
@@ -451,8 +453,6 @@ h2{font-size:17px;font-weight:600}
           <input type="number" id="dayRegenIn" min="0" max="999" value="0" style="width:110px">
         </div>
       </div>
-      <!-- 出庫 -->
-      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px">🔻 出庫数（0のままでOK）</div>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <div class="ctrl-group">
           <label style="color:var(--blue)">新液缶 出庫</label>
@@ -463,23 +463,11 @@ h2{font-size:17px;font-weight:600}
           <input type="number" id="dayRegenOut2" min="0" max="999" value="0" style="width:110px">
         </div>
       </div>
-      <!-- 終業時実数（任意） -->
-      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:8px">📋 終業時の実数（任意・確認用）</div>
-      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
-        <div class="ctrl-group">
-          <label style="color:var(--blue)">新液缶</label>
-          <input type="number" id="dayNewActual" min="0" max="999" placeholder="空白でOK" style="width:110px">
-        </div>
-        <div class="ctrl-group">
-          <label style="color:var(--teal)">再生缶</label>
-          <input type="number" id="dayRegenActual" min="0" max="999" placeholder="空白でOK" style="width:110px">
-        </div>
-      </div>
     </div>
 
     <!-- 予測設定（未来） -->
     <div id="dayForecastSection" style="display:none">
-      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px">出庫予測の設定</div>
+      <div style="font-size:13px;font-weight:700;color:var(--text2);margin-bottom:10px">出庫予測の設定（作業なし日は0）</div>
       <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <div class="ctrl-group">
           <label style="color:var(--blue)">新液缶 出庫数</label>
@@ -938,20 +926,14 @@ function renderCalendar() {
       return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
     }
 
-    // 過去：ログがある日だけ表示
+    // 過去：ログがある日だけ表示（in/outログから積み上げ計算）
     if (diffDays < 0) {
-      const dayLogs = state.log.filter(l => l.date === dateStr);
+      const dayLogs = state.log.filter(l => l.date === dateStr && (l.direction === 'in' || l.direction === 'out'));
       if (dayLogs.length === 0) return null;
-      // actualフィールドがあればそれを使う（実数入力した場合）
-      const newActual = dayLogs.find(l => l.canType === 'new' && l.actual !== undefined);
-      const regenActual = dayLogs.find(l => l.canType === 'regen' && l.actual !== undefined);
-      if (newActual && regenActual) {
-        return { ns: newActual.actual, rs: regenActual.actual, isPast: true };
-      }
-      // actualがない場合は逆算
+      // 対象日以降のin/outログを逆算
       let ns = state.newStock;
       let rs = state.regenStock;
-      const laterLogs = state.log.filter(l => l.date > dateStr);
+      const laterLogs = state.log.filter(l => l.date > dateStr && (l.direction === 'in' || l.direction === 'out'));
       for (const l of laterLogs) {
         if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
         else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
@@ -1084,30 +1066,10 @@ function renderHistory() {
     const d = new Date(l.date + 'T00:00:00');
     const days = ['日','月','火','水','木','金','土'];
     const dateStr = `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
-    // actual方式：前日との差分を表示（今日のみ差分計算可能）
     let delta, deltaClass, noteLabel;
-    if (l.direction === 'actual') {
-      // 同じ缶タイプの直前のactualログと比較して差分を表示
-      const prevLogs = state.log
-        .filter(pl => pl.canType === l.canType && pl.actual !== undefined && pl.date < l.date)
-        .sort((a,b) => b.date.localeCompare(a.date));
-      const prevStock = prevLogs.length > 0 ? prevLogs[0].actual : null;
-      if (prevStock !== null) {
-        const diff = l.actual - prevStock;
-        delta = diff >= 0 ? `+${diff}` : `${diff}`;
-        deltaClass = diff >= 0 ? 'plus' : 'minus';
-        noteLabel = diff > 0 ? '入荷含む増加' : diff < 0 ? '出庫' : '変化なし';
-      } else {
-        delta = `${l.actual}`;
-        deltaClass = 'plus';
-        noteLabel = '実数';
-      }
-      if (l.note && l.note !== '実数記録') noteLabel = l.note;
-    } else {
-      delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
-      deltaClass = l.direction === 'in' ? 'plus' : 'minus';
-      noteLabel = l.note || (l.direction === 'in' ? '入荷' : '出庫');
-    }
+    delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
+    deltaClass = l.direction === 'in' ? 'plus' : 'minus';
+    noteLabel = l.note || (l.direction === 'in' ? '入荷' : '出庫');
     return `<div class="log-item">
       <span class="log-date">${dateStr}</span>
       <span class="log-type ${typeClass}">${typeLabel}</span>
@@ -1179,36 +1141,46 @@ function saveSettings() {
 
 // ===== QUICK RECORD =====
 async function recordToday() {
-  const newVal = document.getElementById('quickNewOut').value;
-  const regenVal = document.getElementById('quickRegenOut').value;
+  const newOut = parseInt(document.getElementById('quickNewOut').value) || 0;
+  const regenOut = parseInt(document.getElementById('quickRegenOut').value) || 0;
+  const newIn = parseInt(document.getElementById('quickNewIn').value) || 0;
+  const regenIn = parseInt(document.getElementById('quickRegenIn').value) || 0;
   const note = document.getElementById('quickNote').value.trim();
   const ds = todayStr();
 
-  if (newVal === '' && regenVal === '') {
-    alert('新液缶または再生缶の現在数を入力してください'); return;
+  if (newOut === 0 && regenOut === 0 && newIn === 0 && regenIn === 0) {
+    alert('出庫数または入荷数を入力してください'); return;
   }
 
   // 既存の今日のログを削除して上書き
   state.log = state.log.filter(l => l.date !== ds);
   const entries = [];
 
-  if (newVal !== '') {
-    const newCount = parseInt(newVal);
-    const e = { date: ds, canType: 'new', direction: 'actual', qty: newCount, note: note || '実数記録', actual: newCount };
-    state.log.push(e);
-    state.newStock = newCount;
-    entries.push(e);
+  if (newOut > 0) {
+    const e = { date: ds, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' };
+    state.log.push(e); entries.push(e);
   }
-  if (regenVal !== '') {
-    const regenCount = parseInt(regenVal);
-    const e = { date: ds, canType: 'regen', direction: 'actual', qty: regenCount, note: note || '実数記録', actual: regenCount };
-    state.log.push(e);
-    state.regenStock = regenCount;
-    entries.push(e);
+  if (regenOut > 0) {
+    const e = { date: ds, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' };
+    state.log.push(e); entries.push(e);
+  }
+  if (newIn > 0) {
+    const e = { date: ds, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' };
+    state.log.push(e); entries.push(e);
+  }
+  if (regenIn > 0) {
+    const e = { date: ds, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' };
+    state.log.push(e); entries.push(e);
   }
 
-  document.getElementById('quickNewOut').value = '';
-  document.getElementById('quickRegenOut').value = '';
+  // 実在庫を更新
+  state.newStock = Math.max(0, state.newStock + newIn - newOut);
+  state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut);
+
+  document.getElementById('quickNewOut').value = 2;
+  document.getElementById('quickRegenOut').value = 2;
+  document.getElementById('quickNewIn').value = 0;
+  document.getElementById('quickRegenIn').value = 0;
   document.getElementById('quickNote').value = '';
   save();
   render();
@@ -1314,17 +1286,14 @@ async function saveDayOverride() {
     const regenIn = parseInt(document.getElementById('dayRegenIn').value) || 0;
     const newOut2 = parseInt(document.getElementById('dayNewOut2').value) || 0;
     const regenOut2 = parseInt(document.getElementById('dayRegenOut2').value) || 0;
-    const newActual = document.getElementById('dayNewActual').value;
-    const regenActual = document.getElementById('dayRegenActual').value;
 
-    if (newIn === 0 && regenIn === 0 && newOut2 === 0 && regenOut2 === 0 && newActual === '' && regenActual === '') {
-      alert('入荷数・出庫数・実数のいずれかを入力してください'); return;
+    if (newIn === 0 && regenIn === 0 && newOut2 === 0 && regenOut2 === 0 && !note) {
+      alert('入荷数または出庫数を入力してください'); return;
     }
 
-    // 既存のその日のログを削除
+    // 既存のその日のログを削除して上書き
     state.log = state.log.filter(l => l.date !== ds);
 
-    // 入荷ログ
     if (newIn > 0) {
       const e = { date: ds, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' };
       state.log.push(e); entries.push(e);
@@ -1333,7 +1302,6 @@ async function saveDayOverride() {
       const e = { date: ds, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' };
       state.log.push(e); entries.push(e);
     }
-    // 出庫ログ
     if (newOut2 > 0) {
       const e = { date: ds, canType: 'new', direction: 'out', qty: newOut2, note: note || '出庫' };
       state.log.push(e); entries.push(e);
@@ -1342,22 +1310,9 @@ async function saveDayOverride() {
       const e = { date: ds, canType: 'regen', direction: 'out', qty: regenOut2, note: note || '出庫' };
       state.log.push(e); entries.push(e);
     }
-    // 実数（終業時確認用）
-    if (newActual !== '') {
-      const newCount = parseInt(newActual);
-      const e = { date: ds, canType: 'new', direction: 'actual', qty: newCount, note: '実数記録', actual: newCount };
-      state.log.push(e);
-      if (diffDays === 0) state.newStock = newCount;
-    } else if (diffDays === 0) {
-      // 今日分：入荷・出庫から実在庫を更新
+    // 今日分は実在庫を更新
+    if (diffDays === 0) {
       state.newStock = Math.max(0, state.newStock + newIn - newOut2);
-    }
-    if (regenActual !== '') {
-      const regenCount = parseInt(regenActual);
-      const e = { date: ds, canType: 'regen', direction: 'actual', qty: regenCount, note: '実数記録', actual: regenCount };
-      state.log.push(e);
-      if (diffDays === 0) state.regenStock = regenCount;
-    } else if (diffDays === 0) {
       state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut2);
     }
     if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
