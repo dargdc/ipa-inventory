@@ -983,16 +983,24 @@ function renderHistory() {
     const idx = state.log.indexOf(l);
     const typeLabel = l.canType === 'new' ? '新液缶' : '再生缶';
     const typeClass = l.canType;
-    const delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
-    const deltaClass = l.direction === 'in' ? 'plus' : 'minus';
     const d = new Date(l.date + 'T00:00:00');
     const days = ['日','月','火','水','木','金','土'];
     const dateStr = `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
+    // actual方式の場合は「実数：XX缶」と表示
+    let delta, deltaClass;
+    if (l.direction === 'actual') {
+      delta = `${l.actual}缶`;
+      deltaClass = 'plus';
+    } else {
+      delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
+      deltaClass = l.direction === 'in' ? 'plus' : 'minus';
+    }
+    const noteLabel = l.direction === 'actual' ? '実数記録' : (l.note || (l.direction === 'in' ? '入荷' : '出庫'));
     return `<div class="log-item">
       <span class="log-date">${dateStr}</span>
       <span class="log-type ${typeClass}">${typeLabel}</span>
-      <span class="log-delta ${deltaClass}">${delta}缶</span>
-      <span class="log-note">${l.note || (l.direction === 'in' ? '入荷' : '出庫')}</span>
+      <span class="log-delta ${deltaClass}">${delta}</span>
+      <span class="log-note">${noteLabel}</span>
       <button class="log-del" onclick="deleteLog(${idx})" title="削除">✕</button>
     </div>`;
   }).join('');
@@ -1088,32 +1096,23 @@ async function recordToday() {
     alert('新液缶または再生缶の現在数を入力してください'); return;
   }
 
+  // 既存の今日のログを削除して上書き
+  state.log = state.log.filter(l => l.date !== ds);
   const entries = [];
 
   if (newVal !== '') {
     const newCount = parseInt(newVal);
-    const diff = newCount - state.newStock; // 正=入荷、負=出庫
-    if (diff !== 0) {
-      const direction = diff > 0 ? 'in' : 'out';
-      const qty = Math.abs(diff);
-      const e = { date: ds, canType: 'new', direction, qty, note: note || (direction === 'in' ? '入荷' : '出庫') };
-      state.log.push(e);
-      entries.push(e);
-    }
+    const e = { date: ds, canType: 'new', direction: 'actual', qty: newCount, note: note || '実数記録', actual: newCount };
+    state.log.push(e);
     state.newStock = newCount;
+    entries.push(e);
   }
-
   if (regenVal !== '') {
     const regenCount = parseInt(regenVal);
-    const diff = regenCount - state.regenStock; // 正=入荷、負=出庫
-    if (diff !== 0) {
-      const direction = diff > 0 ? 'in' : 'out';
-      const qty = Math.abs(diff);
-      const e = { date: ds, canType: 'regen', direction, qty, note: note || (direction === 'in' ? '入荷' : '出庫') };
-      state.log.push(e);
-      entries.push(e);
-    }
+    const e = { date: ds, canType: 'regen', direction: 'actual', qty: regenCount, note: note || '実数記録', actual: regenCount };
+    state.log.push(e);
     state.regenStock = regenCount;
+    entries.push(e);
   }
 
   document.getElementById('quickNewOut').value = '';
@@ -1122,7 +1121,6 @@ async function recordToday() {
   save();
   render();
 
-  // GASにも保存
   for (const e of entries) {
     try { await gasGet({ action: 'appendLog', row: JSON.stringify(e) }); } catch(err) {}
   }
@@ -1214,7 +1212,6 @@ async function saveDayOverride() {
   const entries = [];
 
   if (!isFuture) {
-    // 今日・過去：実数入力から差分計算
     const newVal = document.getElementById('dayNewActual').value;
     const regenVal = document.getElementById('dayRegenActual').value;
 
@@ -1225,38 +1222,20 @@ async function saveDayOverride() {
     // 既存のその日のログを削除
     state.log = state.log.filter(l => l.date !== ds);
 
-    // 差分計算の基準：前日までのログから推定
-    // 今日の場合はstate.newStockを基準
-    // 過去の場合はその日以降のログから逆算した値を基準
-    let baseNew = state.newStock;
-    let baseRegen = state.regenStock;
-    if (diffDays < 0) {
-      const laterLogs = state.log.filter(l => l.date > ds);
-      for (const l of laterLogs) {
-        if (l.canType === 'new') baseNew = l.direction === 'in' ? baseNew - l.qty : baseNew + l.qty;
-        else baseRegen = l.direction === 'in' ? baseRegen - l.qty : baseRegen + l.qty;
-      }
-    }
-
+    // 実数をそのままactualとして保存（差分計算なし）
     if (newVal !== '') {
       const newCount = parseInt(newVal);
-      const diff = newCount - baseNew;
-      // diff=0でも記録（変化なしとして残す）
-      const direction = diff >= 0 ? 'in' : 'out';
-      const qty = Math.abs(diff) || 0;
-      const e = { date: ds, canType: 'new', direction: diff < 0 ? 'out' : 'in', qty: qty, note: note || (diff > 0 ? '入荷' : diff < 0 ? '出庫' : '変化なし'), actual: newCount };
+      const e = { date: ds, canType: 'new', direction: 'actual', qty: newCount, note: note || '実数記録', actual: newCount };
       state.log.push(e);
-      if (qty > 0) entries.push(e);
       if (diffDays === 0) state.newStock = newCount;
     }
     if (regenVal !== '') {
       const regenCount = parseInt(regenVal);
-      const diff = regenCount - baseRegen;
-      const e = { date: ds, canType: 'regen', direction: diff < 0 ? 'out' : 'in', qty: Math.abs(diff) || 0, note: note || (diff > 0 ? '入荷' : diff < 0 ? '出庫' : '変化なし'), actual: regenCount };
+      const e = { date: ds, canType: 'regen', direction: 'actual', qty: regenCount, note: note || '実数記録', actual: regenCount };
       state.log.push(e);
-      if (Math.abs(diff) > 0) entries.push(e);
       if (diffDays === 0) state.regenStock = regenCount;
     }
+    if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
     if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
 
   } else {
