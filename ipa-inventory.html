@@ -688,7 +688,7 @@ function updateStockCards() {
   // 本日の記録状態
   const statusEl = document.getElementById('todayRecordStatus');
   if (statusEl) {
-    const todayOutLogs = state.log.filter(l => l.date === todayStr() && l.direction === 'out');
+    const todayOutLogs = state.log.filter(l => l.date === todayStr() && (l.direction === 'out' || l.direction === 'actual' || l.direction === 'in'));
     const isWeekend = [0,6].includes(today().getDay());
     const isHoliday = isHolidayDate(todayStr());
     if (isWeekend || isHoliday) {
