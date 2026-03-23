@@ -1016,28 +1016,36 @@ function renderCalendar() {
     if (holidayName) innerHtml += `<div class="holiday-mark">${holidayName}</div>`;
     else if (ov && ov.note) innerHtml += `<div class="holiday-mark">${ov.note}</div>`;
 
-    // 今日のセルに記録状態を表示
-    if (isToday && !isRest) {
-      const todayLogs = state.log.filter(l => l.date === ds && l.direction === 'out');
+    if (isPast) {
+      // 過去：実数ログがある日だけ在庫数を表示（入荷バッジなし）
+      if (proj) {
+        innerHtml += `<div class="can-dot new-val past-val">新:${proj.ns}</div>`;
+        innerHtml += `<div class="can-dot regen-val past-val">再:${proj.rs}</div>`;
+      }
+    } else if (isToday) {
+      // 今日：記録状態と実在庫を表示
+      const todayLogs = state.log.filter(l => l.date === ds && (l.direction === 'out' || l.direction === 'actual'));
       if (todayLogs.length > 0) {
         innerHtml += `<div style="font-size:9px;font-weight:700;color:var(--green);margin-bottom:1px">✓ 記録済</div>`;
-      } else {
+      } else if (!isRest) {
         innerHtml += `<div style="font-size:9px;font-weight:700;color:var(--amber);margin-bottom:1px">⚪ 未記録</div>`;
       }
-    }
-
-    if (isRest && !del && !isPast) {
-      innerHtml += `<div class="can-dot rest-day">休業日</div>`;
-    }
-
-    if (del === 'new') innerHtml += `<div class="can-dot delivery delivery-new">新+${getDeliveryQty('new')}</div>`;
-    if (del === 'regen') innerHtml += `<div class="can-dot delivery delivery-regen">再+${getDeliveryQty('regen')}</div>`;
-
-    if (proj) {
-      const pastCls = proj.isPast ? ' past-val' : '';
-      if (!isRest || del || proj.isPast) {
-        innerHtml += `<div class="can-dot new-val${pastCls}">新:${proj.ns}</div>`;
-        innerHtml += `<div class="can-dot regen-val${pastCls}">再:${proj.rs}</div>`;
+      if (isRest) innerHtml += `<div class="can-dot rest-day">休業日</div>`;
+      if (proj) {
+        innerHtml += `<div class="can-dot new-val">新:${proj.ns}</div>`;
+        innerHtml += `<div class="can-dot regen-val">再:${proj.rs}</div>`;
+      }
+    } else {
+      // 未来：入荷バッジ・予測在庫を表示
+      if (isRest && !del) {
+        innerHtml += `<div class="can-dot rest-day">休業日</div>`;
+      }
+      if (del === 'new') innerHtml += `<div class="can-dot delivery delivery-new">新+${getDeliveryQty('new')}</div>`;
+      if (del === 'regen') innerHtml += `<div class="can-dot delivery delivery-regen">再+${getDeliveryQty('regen')}</div>`;
+      if (proj && (!isRest || del)) {
+        const cls = proj.ns <= danger ? ' day-stock-crit' : proj.ns <= warn ? ' day-stock-low' : '';
+        innerHtml += `<div class="can-dot new-val">新:${proj.ns}</div>`;
+        innerHtml += `<div class="can-dot regen-val">再:${proj.rs}</div>`;
       }
     }
 
@@ -1079,18 +1087,20 @@ function renderHistory() {
     // actual方式：前日との差分を表示（今日のみ差分計算可能）
     let delta, deltaClass, noteLabel;
     if (l.direction === 'actual') {
-      // 同じ日の前のログと比較して差分を出す
-      const prevLogs = state.log.filter(pl => pl.date < l.date && pl.canType === l.canType && pl.actual !== undefined)
+      // 同じ缶タイプの直前のactualログと比較して差分を表示
+      const prevLogs = state.log
+        .filter(pl => pl.canType === l.canType && pl.actual !== undefined && pl.date < l.date)
         .sort((a,b) => b.date.localeCompare(a.date));
-      if (prevLogs.length > 0) {
-        const diff = l.actual - prevLogs[0].actual;
+      const prevStock = prevLogs.length > 0 ? prevLogs[0].actual : null;
+      if (prevStock !== null) {
+        const diff = l.actual - prevStock;
         delta = diff >= 0 ? `+${diff}` : `${diff}`;
         deltaClass = diff >= 0 ? 'plus' : 'minus';
-        noteLabel = diff > 0 ? '入荷' : diff < 0 ? '出庫' : '変化なし';
+        noteLabel = diff > 0 ? '入荷含む増加' : diff < 0 ? '出庫' : '変化なし';
       } else {
         delta = `${l.actual}`;
         deltaClass = 'plus';
-        noteLabel = '初回記録';
+        noteLabel = '実数';
       }
       if (l.note && l.note !== '実数記録') noteLabel = l.note;
     } else {
