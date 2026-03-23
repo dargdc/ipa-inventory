@@ -251,9 +251,10 @@ h2{font-size:17px;font-weight:600}
           <span class="can-badge new">新液缶</span>
           <span class="today-badge" id="newNextDelivery" style="font-size:11px"></span>
         </div>
-        <div>
+        <div style="display:flex;align-items:baseline;gap:6px">
           <span class="stock-count new" id="newStock">—</span>
           <span class="stock-unit">缶</span>
+          <button onclick="openStockEdit('new')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;border:0.5px solid var(--border)">修正</button>
         </div>
         <div class="stock-sub" id="newDaysLeft"></div>
         <div id="newAlert"></div>
@@ -263,9 +264,10 @@ h2{font-size:17px;font-weight:600}
           <span class="can-badge regen">再生缶</span>
           <span class="today-badge" id="regenNextDelivery" style="font-size:11px"></span>
         </div>
-        <div>
+        <div style="display:flex;align-items:baseline;gap:6px">
           <span class="stock-count regen" id="regenStock">—</span>
           <span class="stock-unit">缶</span>
+          <button onclick="openStockEdit('regen')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;border:0.5px solid var(--border)">修正</button>
         </div>
         <div class="stock-sub" id="regenDaysLeft"></div>
         <div id="regenAlert"></div>
@@ -274,20 +276,21 @@ h2{font-size:17px;font-weight:600}
 
     <!-- クイック記録 -->
     <div class="controls-area">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
-        <div class="controls-title" style="margin-bottom:0">本日の在庫を入力</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <div class="controls-title" style="margin-bottom:0">終業時の缶数を記録</div>
         <div id="todayRecordStatus"></div>
       </div>
-      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--surface2);border-radius:8px">
-        棚を数えた実際の缶数をそのまま入力してください。差分を自動計算します。
+      <div style="font-size:12px;color:var(--text2);margin-bottom:12px;padding:8px 10px;background:var(--surface2);border-radius:8px;line-height:1.6">
+        📌 <b style="color:var(--text)">終業時に棚を数えた缶数</b>をそのまま入力してください<br>
+        入荷があった日も同じ。棚の実数を入力するだけでOKです。
       </div>
       <div class="control-row">
         <div class="ctrl-group">
-          <label>新液缶（現在数）</label>
+          <label>新液缶（終業時）</label>
           <input type="number" id="quickNewOut" min="0" max="999" placeholder="缶数">
         </div>
         <div class="ctrl-group">
-          <label>再生缶（現在数）</label>
+          <label>再生缶（終業時）</label>
           <input type="number" id="quickRegenOut" min="0" max="999" placeholder="缶数">
         </div>
         <div class="ctrl-group" style="flex:1;min-width:120px">
@@ -295,6 +298,15 @@ h2{font-size:17px;font-weight:600}
           <input type="text" id="quickNote" placeholder="例：入荷あり" style="width:100%">
         </div>
         <button class="btn btn-primary" onclick="recordToday()" style="align-self:flex-end">記録</button>
+      </div>
+      <div class="divider"></div>
+      <div class="schedule-row">
+        <span style="font-size:13px;color:var(--text2);font-weight:600">今週の入荷：</span>
+        <div class="week-toggle">
+          <button id="toggleNew" onclick="setCurrentWeekCan('new')">新液缶</button>
+          <button id="toggleRegen" onclick="setCurrentWeekCan('regen')">再生缶</button>
+          <button id="toggleNone" onclick="setCurrentWeekCan('none')">なし</button>
+        </div>
       </div>
     </div>
   </div>
@@ -402,6 +414,22 @@ h2{font-size:17px;font-weight:600}
     <span class="nav-label">メニュー</span>
   </button>
 </nav>
+
+<!-- 在庫修正モーダル -->
+<div class="modal-overlay" id="stockEditModal">
+  <div class="modal" style="max-width:320px">
+    <div class="modal-title" id="stockEditTitle">在庫数を修正</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px">実際の棚の缶数に修正してください</div>
+    <div class="modal-field">
+      <label id="stockEditLabel">缶数</label>
+      <input type="number" id="stockEditVal" min="0" max="999" style="width:100%">
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeStockEdit()">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveStockEdit()">修正する</button>
+    </div>
+  </div>
+</div>
 
 <!-- Day modal - 統合入力 -->
 <div class="modal-overlay" id="dayModal">
@@ -654,7 +682,44 @@ function formatDateShort(d) {
 }
 
 function updateScheduleToggle() {
-  // トグル廃止：ログベースの自動判定に変更
+  const cw = state.settings.currentWeekCan;
+  const btnNew = document.getElementById('toggleNew');
+  const btnRegen = document.getElementById('toggleRegen');
+  const btnNone = document.getElementById('toggleNone');
+  if (!btnNew) return;
+  btnNew.className = cw === 'new' ? 'active-new' : '';
+  btnRegen.className = cw === 'regen' ? 'active-regen' : '';
+  btnNone.className = '';
+}
+
+function setCurrentWeekCan(type) {
+  state.settings.currentWeekCan = type;
+  save();
+  render();
+}
+
+// ===== 在庫修正 =====
+let stockEditType = null;
+function openStockEdit(type) {
+  stockEditType = type;
+  const label = type === 'new' ? '新液缶' : '再生缶';
+  document.getElementById('stockEditTitle').textContent = label + 'の在庫数を修正';
+  document.getElementById('stockEditLabel').textContent = label + '（現在の実棚数）';
+  document.getElementById('stockEditVal').value = type === 'new' ? state.newStock : state.regenStock;
+  document.getElementById('stockEditModal').classList.add('open');
+}
+function closeStockEdit() {
+  document.getElementById('stockEditModal').classList.remove('open');
+  stockEditType = null;
+}
+function saveStockEdit() {
+  const val = parseInt(document.getElementById('stockEditVal').value);
+  if (isNaN(val) || val < 0) { alert('正しい数字を入力してください'); return; }
+  if (stockEditType === 'new') state.newStock = val;
+  else state.regenStock = val;
+  save();
+  render();
+  closeStockEdit();
 }
 
 function setCurrentWeekCan(type) {
@@ -986,20 +1051,32 @@ function renderHistory() {
     const d = new Date(l.date + 'T00:00:00');
     const days = ['日','月','火','水','木','金','土'];
     const dateStr = `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
-    // actual方式の場合は「実数：XX缶」と表示
-    let delta, deltaClass;
+    // actual方式：前日との差分を表示（今日のみ差分計算可能）
+    let delta, deltaClass, noteLabel;
     if (l.direction === 'actual') {
-      delta = `${l.actual}缶`;
-      deltaClass = 'plus';
+      // 同じ日の前のログと比較して差分を出す
+      const prevLogs = state.log.filter(pl => pl.date < l.date && pl.canType === l.canType && pl.actual !== undefined)
+        .sort((a,b) => b.date.localeCompare(a.date));
+      if (prevLogs.length > 0) {
+        const diff = l.actual - prevLogs[0].actual;
+        delta = diff >= 0 ? `+${diff}` : `${diff}`;
+        deltaClass = diff >= 0 ? 'plus' : 'minus';
+        noteLabel = diff > 0 ? '入荷' : diff < 0 ? '出庫' : '変化なし';
+      } else {
+        delta = `${l.actual}`;
+        deltaClass = 'plus';
+        noteLabel = '初回記録';
+      }
+      if (l.note && l.note !== '実数記録') noteLabel = l.note;
     } else {
       delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
       deltaClass = l.direction === 'in' ? 'plus' : 'minus';
+      noteLabel = l.note || (l.direction === 'in' ? '入荷' : '出庫');
     }
-    const noteLabel = l.direction === 'actual' ? '実数記録' : (l.note || (l.direction === 'in' ? '入荷' : '出庫'));
     return `<div class="log-item">
       <span class="log-date">${dateStr}</span>
       <span class="log-type ${typeClass}">${typeLabel}</span>
-      <span class="log-delta ${deltaClass}">${delta}</span>
+      <span class="log-delta ${deltaClass}">${delta}缶</span>
       <span class="log-note">${noteLabel}</span>
       <button class="log-del" onclick="deleteLog(${idx})" title="削除">✕</button>
     </div>`;
@@ -1025,10 +1102,8 @@ function renderSettings() {
   const s = state.settings;
   const container = document.getElementById('settingsContainer');
   const rows = [
-    { label: '新液缶 デフォルト出庫数/日', sub: '通常日の出庫数', key: 'defaultNewOut' },
-    { label: '再生缶 デフォルト出庫数/日', sub: '通常日の出庫数', key: 'defaultRegenOut' },
-    { label: '新液缶 1回入荷数', sub: '定期入荷の缶数', key: 'newDeliveryQty' },
-    { label: '再生缶 1回入荷数', sub: '定期入荷の缶数', key: 'regenDeliveryQty' },
+    { label: '新液缶 1回入荷数', sub: '未来の予測に使用', key: 'newDeliveryQty' },
+    { label: '再生缶 1回入荷数', sub: '未来の予測に使用', key: 'regenDeliveryQty' },
     { label: '在庫注意レベル（缶）', sub: 'この数以下で警告', key: 'warnThreshold' },
     { label: '在庫危険レベル（缶）', sub: 'この数以下で危険警告', key: 'dangerThreshold' },
   ];
@@ -1041,20 +1116,6 @@ function renderSettings() {
       </div>
     </div>
   `).join('') + `
-    <div class="setting-item">
-      <div><div class="setting-label">現在在庫：新液缶</div><div class="setting-sub">現在の実棚数を入力</div></div>
-      <div class="setting-control">
-        <input type="number" id="setting_newStock" value="${state.newStock}" min="0" max="9999">
-        <span style="font-size:12px;color:var(--text3)">缶</span>
-      </div>
-    </div>
-    <div class="setting-item">
-      <div><div class="setting-label">現在在庫：再生缶</div><div class="setting-sub">現在の実棚数を入力</div></div>
-      <div class="setting-control">
-        <input type="number" id="setting_regenStock" value="${state.regenStock}" min="0" max="9999">
-        <span style="font-size:12px;color:var(--text3)">缶</span>
-      </div>
-    </div>
     <div class="setting-item">
       <div><div class="setting-label">入荷曜日</div><div class="setting-sub">定期入荷の曜日</div></div>
       <div class="setting-control">
@@ -1069,15 +1130,11 @@ function renderSettings() {
 }
 
 function saveSettings() {
-  const keys = ['defaultNewOut','defaultRegenOut','newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold'];
+  const keys = ['newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold'];
   keys.forEach(k => {
     const el = document.getElementById('setting_' + k);
     if (el) state.settings[k] = parseInt(el.value) || 0;
   });
-  const newStockEl = document.getElementById('setting_newStock');
-  const regenStockEl = document.getElementById('setting_regenStock');
-  if (newStockEl) state.newStock = parseInt(newStockEl.value) || 0;
-  if (regenStockEl) state.regenStock = parseInt(regenStockEl.value) || 0;
   const dowEl = document.getElementById('setting_deliveryDow');
   if (dowEl) state.settings.deliveryDayOfWeek = parseInt(dowEl.value);
   save();
@@ -1350,6 +1407,7 @@ window.closeDayModal = closeDayModal;
 window.saveDayOverride = saveDayOverride;
 window.clearDayOverride = clearDayOverride;
 window.recordToday = recordToday;
+window.setCurrentWeekCan = setCurrentWeekCan;
 window.prevMonth = prevMonth;
 window.nextMonth = nextMonth;
 window.saveSettings = saveSettings;
@@ -1359,6 +1417,9 @@ window.deleteLog = deleteLog;
 window.clearHistory = clearHistory;
 window.addHolidayPeriod = addHolidayPeriod;
 window.deleteHoliday = deleteHoliday;
+window.openStockEdit = openStockEdit;
+window.closeStockEdit = closeStockEdit;
+window.saveStockEdit = saveStockEdit;
 </script>
 </body>
 </html>
