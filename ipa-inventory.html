@@ -872,38 +872,31 @@ function renderCalendar() {
     const td = today();
     td.setHours(0,0,0,0);
     const diffDays = Math.round((d - td) / 86400000);
+
     // 今日は実在庫
     if (diffDays === 0) return { ns: state.newStock, rs: state.regenStock, isPast: false };
+
     // 未来は予測
     if (diffDays > 0 && diffDays < newStocks.length) {
       return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
     }
-    // 過去：今日の実在庫から逆方向に1日ずつ逆算（対象日の出庫後を表示）
+
+    // 過去：ログがある日だけ表示
     if (diffDays < 0) {
+      const dayLogs = state.log.filter(l => l.date === dateStr);
+      if (dayLogs.length === 0) return null; // ログなし→表示しない
+      // ログがある日は記録された実数から計算
+      // その日以降今日までのログを逆算
       let ns = state.newStock;
       let rs = state.regenStock;
-      // i=-1（昨日）から対象日の翌日まで逆算（対象日自体は含まない）
-      for (let i = -1; i > diffDays; i--) {
-        const dd = new Date(td);
-        dd.setDate(td.getDate() + i);
-        const ds2 = toDateStr(dd);
-        const dayLogs = state.log.filter(l => l.date === ds2);
-        if (dayLogs.length > 0) {
-          for (const l of dayLogs) {
-            if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
-            else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
-          }
-        } else {
-          const cons = getDailyConsumption(ds2);
-          ns += cons.newOut;
-          rs += cons.regenOut;
-          const del = getDeliveryForDate(ds2);
-          if (del === 'new') ns -= getDeliveryQty('new');
-          if (del === 'regen') rs -= getDeliveryQty('regen');
-        }
+      const laterLogs = state.log.filter(l => l.date > dateStr && l.date <= todayStr());
+      for (const l of laterLogs) {
+        if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
+        else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
       }
       return { ns: Math.max(0, ns), rs: Math.max(0, rs), isPast: true };
     }
+
     return null;
   }
 
