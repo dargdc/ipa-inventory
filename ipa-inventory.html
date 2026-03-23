@@ -1221,36 +1221,36 @@ function openDayModal(ds) {
 
   // 既存ログがあれば表示
   const dayLogs = state.log.filter(l => l.date === ds);
-  const newLog = dayLogs.filter(l => l.canType === 'new');
-  const regenLog = dayLogs.filter(l => l.canType === 'regen');
 
-  if (isToday) {
-    document.getElementById('dayNewActual').value = state.newStock;
-    document.getElementById('dayRegenActual').value = state.regenStock;
-  } else {
-    document.getElementById('dayNewActual').value = '';
-    document.getElementById('dayRegenActual').value = '';
-  }
-
-  // 未来の予測設定
+  // 未来の予測設定を読み込み
   const ov = state.dayOverrides[ds] || {};
-  document.getElementById('dayNewOut').value = ov.newOut !== undefined ? ov.newOut : state.settings.defaultNewOut;
-  document.getElementById('dayRegenOut').value = ov.regenOut !== undefined ? ov.regenOut : state.settings.defaultRegenOut;
+  if (isFuture) {
+    document.getElementById('dayNewOut').value = ov.newOut !== undefined ? ov.newOut : state.settings.defaultNewOut;
+    document.getElementById('dayRegenOut').value = ov.regenOut !== undefined ? ov.regenOut : state.settings.defaultRegenOut;
+  }
   document.getElementById('dayNote').value = ov.note || '';
 
   // ステータス情報
   const del = getDeliveryForDate(ds);
   let statusHtml = '';
   if (isPast) {
+    const inLogs = dayLogs.filter(l => l.direction === 'in');
+    const outLogs = dayLogs.filter(l => l.direction === 'out');
     if (dayLogs.length > 0) {
+      const newIn = inLogs.filter(l=>l.canType==='new').reduce((s,l)=>s+l.qty,0);
+      const newOut = outLogs.filter(l=>l.canType==='new').reduce((s,l)=>s+l.qty,0);
+      const regenIn = inLogs.filter(l=>l.canType==='regen').reduce((s,l)=>s+l.qty,0);
+      const regenOut = outLogs.filter(l=>l.canType==='regen').reduce((s,l)=>s+l.qty,0);
       statusHtml = '📝 記録あり：';
-      if (newLog.length > 0) statusHtml += '新液缶 ' + (newLog[0].direction === 'in' ? '+' : '-') + newLog[0].qty + '缶　';
-      if (regenLog.length > 0) statusHtml += '再生缶 ' + (regenLog[0].direction === 'in' ? '+' : '-') + regenLog[0].qty + '缶';
+      if (newIn > 0) statusHtml += `新入荷+${newIn} `;
+      if (newOut > 0) statusHtml += `新出庫-${newOut} `;
+      if (regenIn > 0) statusHtml += `再入荷+${regenIn} `;
+      if (regenOut > 0) statusHtml += `再出庫-${regenOut}`;
     } else {
-      statusHtml = '記録なし。実際の缶数を入力してください。';
+      statusHtml = '記録なし。入荷数・出庫数を入力してください。';
     }
   } else if (isToday) {
-    statusHtml = '今日の実際の缶数を入力してください。';
+    statusHtml = `現在の在庫：新液缶 <b>${state.newStock}缶</b>　再生缶 <b>${state.regenStock}缶</b>`;
     if (del === 'new') statusHtml += '<br>📦 新液缶の入荷日です';
     if (del === 'regen') statusHtml += '<br>📦 再生缶の入荷日です';
   } else {
