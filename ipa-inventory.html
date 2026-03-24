@@ -146,14 +146,14 @@ h2{font-size:17px;font-weight:600}
 .day-num-sun{color:#c0392b}
 .day-num-sat{color:#2980b9}
 .cal-day.today .day-num{color:var(--blue)}
-.can-dot{font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.can-dot.new-val{color:var(--blue)}
-.can-dot.regen-val{color:var(--teal)}
-.can-dot.past-val{opacity:0.75}
+.can-dot{font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.can-dot.new-val{color:#0c4479}
+.can-dot.regen-val{color:#085041}
+.can-dot.past-val{opacity:0.8}
 .can-dot.rest-day{font-size:9px;color:var(--text3);font-style:italic}
-.can-dot.delivery{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;display:inline-block;margin-top:1px}
-.can-dot.delivery-new{background:var(--blue-bg);color:var(--blue)}
-.can-dot.delivery-regen{background:var(--teal-bg);color:var(--teal)}
+.can-dot.delivery{font-size:10px;font-weight:800;padding:1px 3px;border-radius:3px;display:inline-block;margin-top:1px}
+.can-dot.delivery-new{background:#b5d4f4;color:#0c4479}
+.can-dot.delivery-regen{background:#9fe1cb;color:#085041}
 .day-stock-low .can-dot.new-val{color:var(--amber)}
 .day-stock-crit .can-dot.new-val{color:var(--red)}
 .day-stock-low-r .can-dot.regen-val{color:var(--amber)}
@@ -171,15 +171,14 @@ h2{font-size:17px;font-weight:600}
 
 /* PC向けカレンダー強化 */
 @media(min-width:600px){
-  .cal-table{font-size:13px}
-  .cal-table th{font-size:13px;padding:7px 3px}
+  .cal-table th{font-size:14px;padding:8px 3px}
   .cal-table td{padding:3px}
-  .cal-day{min-height:82px;padding:6px 5px;border-radius:9px}
-  .day-num{font-size:14px;font-weight:800;margin-bottom:4px}
-  .can-dot{font-size:12px;line-height:1.5;font-weight:600}
-  .can-dot.delivery{font-size:11px;padding:2px 5px}
-  .can-dot.rest-day{font-size:11px}
-  .holiday-mark{font-size:11px}
+  .cal-day{min-height:88px;padding:6px 5px;border-radius:9px}
+  .day-num{font-size:15px;font-weight:800;margin-bottom:4px}
+  .can-dot{font-size:13px;line-height:1.6;font-weight:700}
+  .can-dot.delivery{font-size:12px;padding:2px 5px}
+  .can-dot.rest-day{font-size:12px}
+  .holiday-mark{font-size:12px}
 }
 
 /* ===== 履歴 ===== */
@@ -999,7 +998,12 @@ function renderCalendar() {
     else if (ov && ov.note) innerHtml += `<div class="holiday-mark">${ov.note}</div>`;
 
     if (isPast) {
-      // 過去：実数ログがある日だけ在庫数を表示（入荷バッジなし）
+      // 過去：ログがある日は入荷バッジ＋在庫数を表示
+      const pastInLogs = state.log.filter(l => l.date === ds && l.direction === 'in');
+      const pastNewIn = pastInLogs.filter(l=>l.canType==='new').reduce((s,l)=>s+l.qty,0);
+      const pastRegenIn = pastInLogs.filter(l=>l.canType==='regen').reduce((s,l)=>s+l.qty,0);
+      if (pastNewIn > 0) innerHtml += `<div class="can-dot delivery delivery-new">新+${pastNewIn}</div>`;
+      if (pastRegenIn > 0) innerHtml += `<div class="can-dot delivery delivery-regen">再+${pastRegenIn}</div>`;
       if (proj) {
         innerHtml += `<div class="can-dot new-val past-val">新:${proj.ns}</div>`;
         innerHtml += `<div class="can-dot regen-val past-val">再:${proj.rs}</div>`;
