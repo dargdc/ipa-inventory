@@ -146,14 +146,14 @@ h2{font-size:17px;font-weight:600}
 .day-num-sun{color:#c0392b}
 .day-num-sat{color:#2980b9}
 .cal-day.today .day-num{color:var(--blue)}
-.can-dot{font-size:10px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.can-dot.new-val{color:var(--blue)}
-.can-dot.regen-val{color:var(--teal)}
-.can-dot.past-val{opacity:0.75}
+.can-dot{font-size:11px;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.can-dot.new-val{color:#0c4479}
+.can-dot.regen-val{color:#085041}
+.can-dot.past-val{opacity:0.8}
 .can-dot.rest-day{font-size:9px;color:var(--text3);font-style:italic}
-.can-dot.delivery{font-size:9px;font-weight:700;padding:1px 3px;border-radius:3px;display:inline-block;margin-top:1px}
-.can-dot.delivery-new{background:var(--blue-bg);color:var(--blue)}
-.can-dot.delivery-regen{background:var(--teal-bg);color:var(--teal)}
+.can-dot.delivery{font-size:10px;font-weight:800;padding:1px 3px;border-radius:3px;display:inline-block;margin-top:1px}
+.can-dot.delivery-new{background:#b5d4f4;color:#0c4479}
+.can-dot.delivery-regen{background:#9fe1cb;color:#085041}
 .day-stock-low .can-dot.new-val{color:var(--amber)}
 .day-stock-crit .can-dot.new-val{color:var(--red)}
 .day-stock-low-r .can-dot.regen-val{color:var(--amber)}
@@ -171,15 +171,14 @@ h2{font-size:17px;font-weight:600}
 
 /* PC向けカレンダー強化 */
 @media(min-width:600px){
-  .cal-table{font-size:13px}
-  .cal-table th{font-size:13px;padding:7px 3px}
+  .cal-table th{font-size:14px;padding:8px 3px}
   .cal-table td{padding:3px}
-  .cal-day{min-height:82px;padding:6px 5px;border-radius:9px}
-  .day-num{font-size:14px;font-weight:800;margin-bottom:4px}
-  .can-dot{font-size:12px;line-height:1.5;font-weight:600}
-  .can-dot.delivery{font-size:11px;padding:2px 5px}
-  .can-dot.rest-day{font-size:11px}
-  .holiday-mark{font-size:11px}
+  .cal-day{min-height:88px;padding:6px 5px;border-radius:9px}
+  .day-num{font-size:15px;font-weight:800;margin-bottom:4px}
+  .can-dot{font-size:13px;line-height:1.6;font-weight:700}
+  .can-dot.delivery{font-size:12px;padding:2px 5px}
+  .can-dot.rest-day{font-size:12px}
+  .holiday-mark{font-size:12px}
 }
 
 /* ===== 履歴 ===== */
@@ -309,9 +308,10 @@ h2{font-size:17px;font-weight:600}
         <div class="week-toggle">
           <button id="toggleNew" onclick="setCurrentWeekCan('new')">新液缶</button>
           <button id="toggleRegen" onclick="setCurrentWeekCan('regen')">再生缶</button>
-          <button id="toggleNone" onclick="setCurrentWeekCan('none')">なし</button>
+          <button id="toggleNone" onclick="setCurrentWeekCan('none')">自動</button>
         </div>
       </div>
+      <div id="weekCanInfo" style="font-size:11px;color:var(--text3);margin-top:6px;padding:0 2px"></div>
     </div>
   </div>
 
@@ -684,7 +684,7 @@ function updateStockCards() {
     } else if (todayOutLogs.length > 0) {
       statusEl.innerHTML = `<span style="font-size:12px;font-weight:600;color:var(--green);background:var(--green-bg);padding:3px 9px;border-radius:6px">✓ 記録済</span>`;
     } else {
-      statusEl.innerHTML = `<span style="font-size:12px;font-weight:600;color:var(--amber);background:var(--amber-bg);padding:3px 9px;border-radius:6px">⚪ 未記録</span>`;
+      statusEl.innerHTML = `<span style="font-size:12px;font-weight:600;color:var(--amber);background:var(--amber-bg);padding:3px 9px;border-radius:6px">○ 未記録</span>`;
     }
   }
 }
@@ -694,24 +694,75 @@ function formatDateShort(d) {
   return `${t.getMonth()+1}/${t.getDate()}`;
 }
 
+function getCurrentWeekCanFromLog() {
+  // ログの最終入荷から今週の入荷缶タイプを自動判定
+  const inLogs = state.log
+    .filter(l => l.direction === 'in')
+    .sort((a, b) => b.date.localeCompare(a.date));
+  if (inLogs.length === 0) return null; // 記録なし
+
+  const last = inLogs[0];
+  // 1ヶ月以上前なら記録なしとみなす
+  const lastDate = new Date(last.date + 'T00:00:00');
+  const diffDays = Math.round((today() - lastDate) / 86400000);
+  if (diffDays > 31) return null;
+
+  // 最終入荷から今週までの週差
+  const lastWeek = getWeekNumber(lastDate);
+  const thisWeek = getWeekNumber(today());
+  const weekDiff = thisWeek - lastWeek;
+
+  if (weekDiff === 0) return last.canType; // 今週入荷済み
+  // 奇数週差→逆の缶
+  const isOdd = weekDiff % 2 === 1;
+  return isOdd ? (last.canType === 'new' ? 'regen' : 'new') : last.canType;
+}
+
 function updateScheduleToggle() {
-  const cw = state.settings.currentWeekCan;
   const btnNew = document.getElementById('toggleNew');
   const btnRegen = document.getElementById('toggleRegen');
   const btnNone = document.getElementById('toggleNone');
   if (!btnNew) return;
+
+  // ログから自動判定
+  const auto = getCurrentWeekCanFromLog();
+  // 手動設定があればそちらを優先
+  const cw = state.settings.currentWeekCan || auto || 'none';
+
   btnNew.className = cw === 'new' ? 'active-new' : '';
   btnRegen.className = cw === 'regen' ? 'active-regen' : '';
   btnNone.className = '';
+
+  // 自動判定の説明を表示
+  const infoEl = document.getElementById('weekCanInfo');
+  if (infoEl) {
+    if (auto === null) {
+      infoEl.textContent = '※ 入荷記録なし（1ヶ月以上）。手動で設定してください。';
+      infoEl.style.color = 'var(--amber)';
+    } else if (state.settings.currentWeekCan) {
+      infoEl.textContent = '※ 手動設定中';
+      infoEl.style.color = 'var(--text3)';
+    } else {
+      const lastLog = state.log.filter(l=>l.direction==='in').sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const lastLabel = lastLog.canType === 'new' ? '新液缶' : '再生缶';
+      const d = new Date(lastLog.date+'T00:00:00');
+      infoEl.textContent = `※ ${d.getMonth()+1}/${d.getDate()}の${lastLabel}入荷記録から自動判定`;
+      infoEl.style.color = 'var(--text3)';
+    }
+  }
 }
 
 function setCurrentWeekCan(type) {
-  state.settings.currentWeekCan = type;
+  // noneを選んだら自動判定に戻す
+  if (type === 'none') {
+    state.settings.currentWeekCan = null;
+  } else {
+    state.settings.currentWeekCan = type;
+  }
   save();
   render();
 }
 
-// ===== 在庫修正 =====
 let stockEditType = null;
 function openStockEdit(type) {
   stockEditType = type;
@@ -733,12 +784,6 @@ function saveStockEdit() {
   save();
   render();
   closeStockEdit();
-}
-
-function setCurrentWeekCan(type) {
-  state.settings.currentWeekCan = type;
-  save();
-  render();
 }
 
 // ===== PROJECTION =====
@@ -770,9 +815,12 @@ function getDeliveryForDate(dateStr) {
 
   // ログから最終入荷を取得して隔週予測
   const last = getLastDeliveryFromLog();
+  // 手動設定があればそちらを優先（ただし自動判定も考慮）
+  const manualCw = state.settings.currentWeekCan;
+
   if (!last) {
-    // ログなし：設定のcurrentWeekCanにフォールバック
-    const cw = state.settings.currentWeekCan;
+    // ログなし：手動設定にフォールバック
+    const cw = manualCw;
     if (!cw || cw === 'none') return null;
     const todayWeek = getWeekNumber(today());
     const dWeek = getWeekNumber(d);
@@ -999,20 +1047,32 @@ function renderCalendar() {
     else if (ov && ov.note) innerHtml += `<div class="holiday-mark">${ov.note}</div>`;
 
     if (isPast) {
-      // 過去：実数ログがある日だけ在庫数を表示（入荷バッジなし）
+      // 過去：ログがある日は入荷バッジ＋在庫数を表示
+      const pastInLogs = state.log.filter(l => l.date === ds && l.direction === 'in');
+      const pastNewIn = pastInLogs.filter(l=>l.canType==='new').reduce((s,l)=>s+l.qty,0);
+      const pastRegenIn = pastInLogs.filter(l=>l.canType==='regen').reduce((s,l)=>s+l.qty,0);
+      if (pastNewIn > 0) innerHtml += `<div class="can-dot delivery delivery-new">新+${pastNewIn}</div>`;
+      if (pastRegenIn > 0) innerHtml += `<div class="can-dot delivery delivery-regen">再+${pastRegenIn}</div>`;
       if (proj) {
         innerHtml += `<div class="can-dot new-val past-val">新:${proj.ns}</div>`;
         innerHtml += `<div class="can-dot regen-val past-val">再:${proj.rs}</div>`;
       }
     } else if (isToday) {
-      // 今日：記録状態と実在庫を表示
-      const todayLogs = state.log.filter(l => l.date === ds && (l.direction === 'out' || l.direction === 'actual'));
-      if (todayLogs.length > 0) {
-        innerHtml += `<div style="font-size:9px;font-weight:700;color:var(--green);margin-bottom:1px">✓ 記録済</div>`;
-      } else if (!isRest) {
-        innerHtml += `<div style="font-size:9px;font-weight:700;color:var(--amber);margin-bottom:1px">⚪ 未記録</div>`;
-      }
+      // 今日：日付横に記録状態、入荷バッジ＋在庫数を表示
+      const todayLogs = state.log.filter(l => l.date === ds && (l.direction === 'out' || l.direction === 'in'));
+      const todayNewIn = state.log.filter(l=>l.date===ds&&l.direction==='in'&&l.canType==='new').reduce((s,l)=>s+l.qty,0);
+      const todayRegenIn = state.log.filter(l=>l.date===ds&&l.direction==='in'&&l.canType==='regen').reduce((s,l)=>s+l.qty,0);
+      // 日付横に記録状態バッジ
+      const recorded = todayLogs.length > 0;
+      innerHtml = `<div style="display:flex;align-items:center;gap:3px;margin-bottom:2px">
+        <div class="${numCls}" style="margin-bottom:0">${day}</div>
+        ${!isRest ? `<span style="font-size:9px;font-weight:700;color:${recorded ? 'var(--green)' : 'var(--amber)'}">${recorded ? '✓' : '○'}</span>` : ''}
+      </div>`;
+      if (holidayName) innerHtml += `<div class="holiday-mark">${holidayName}</div>`;
+      else if (ov && ov.note) innerHtml += `<div class="holiday-mark">${ov.note}</div>`;
       if (isRest) innerHtml += `<div class="can-dot rest-day">休業日</div>`;
+      if (todayNewIn > 0) innerHtml += `<div class="can-dot delivery delivery-new">新+${todayNewIn}</div>`;
+      if (todayRegenIn > 0) innerHtml += `<div class="can-dot delivery delivery-regen">再+${todayRegenIn}</div>`;
       if (proj) {
         innerHtml += `<div class="can-dot new-val">新:${proj.ns}</div>`;
         innerHtml += `<div class="can-dot regen-val">再:${proj.rs}</div>`;
