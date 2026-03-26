@@ -188,6 +188,7 @@ h2{font-size:17px;font-weight:600}
 .log-type{font-weight:700;min-width:60px}
 .log-type.new{color:var(--blue)}
 .log-type.regen{color:var(--teal)}
+.log-type.waste{color:#8B4513}
 .log-delta{font-weight:700;min-width:40px;text-align:right;font-size:15px}
 .log-delta.plus{color:var(--green)}
 .log-delta.minus{color:var(--red)}
@@ -271,6 +272,26 @@ h2{font-size:17px;font-weight:600}
         <div class="stock-sub" id="regenDaysLeft"></div>
         <div id="regenAlert"></div>
       </div>
+      <div class="stock-card" style="border-left:3px solid #8B4513;background:linear-gradient(135deg,#fdf6f0,#fce8d8)">
+        <div class="stock-header">
+          <span class="can-badge" style="background:#f0d0b0;color:#6B3000">廃液缶</span>
+        </div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <span class="stock-count" style="color:#8B4513" id="wasteStock">—</span>
+          <span class="stock-unit">缶</span>
+          <button onclick="openStockEdit('waste')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;border:0.5px solid var(--border)">修正</button>
+        </div>
+        <div id="wasteAlert"></div>
+      </div>
+    </div>
+
+    <!-- 合計缶数 -->
+    <div id="totalCanArea" style="margin:8px 0;padding:12px 16px;border-radius:12px;background:var(--surface2);border:0.5px solid var(--border)">
+      <div style="display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:13px;color:var(--text2);font-weight:600">総保有缶数（新液＋再生＋廃液）</span>
+        <span id="totalStock" style="font-size:20px;font-weight:800;color:var(--text)">—</span>
+      </div>
+      <div id="totalAlert" style="margin-top:4px"></div>
     </div>
 
     <!-- クイック記録 -->
@@ -295,6 +316,16 @@ h2{font-size:17px;font-weight:600}
         <div class="ctrl-group">
           <label>再生缶 入荷</label>
           <input type="number" id="quickRegenIn" min="0" max="999" value="0">
+        </div>
+      </div>
+      <div class="control-row" style="margin-top:8px">
+        <div class="ctrl-group">
+          <label style="color:#8B4513">廃液缶 増加</label>
+          <input type="number" id="quickWasteIn" min="0" max="999" value="0">
+        </div>
+        <div class="ctrl-group">
+          <label style="color:#8B4513">廃液缶 回収</label>
+          <input type="number" id="quickWasteOut" min="0" max="999" value="0">
         </div>
         <div class="ctrl-group" style="flex:1;min-width:120px">
           <label>メモ（任意）</label>
@@ -463,6 +494,16 @@ h2{font-size:17px;font-weight:600}
           <input type="number" id="dayRegenOut2" min="0" max="999" value="0" style="width:110px">
         </div>
       </div>
+      <div style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+        <div class="ctrl-group">
+          <label style="color:#8B4513">廃液缶 増加</label>
+          <input type="number" id="dayWasteIn" min="0" max="999" value="0" style="width:110px">
+        </div>
+        <div class="ctrl-group">
+          <label style="color:#8B4513">廃液缶 回収</label>
+          <input type="number" id="dayWasteOut" min="0" max="999" value="0" style="width:110px">
+        </div>
+      </div>
     </div>
 
     <!-- 予測設定（未来） -->
@@ -519,23 +560,26 @@ const DB_KEY = 'ipa_mgr_v2';
 let state = {
   newStock: 20,
   regenStock: 20,
+  wasteStock: 0,
   log: [],
-  holidays: [], // [{start, end, name}]
+  holidays: [],
   settings: {
     defaultNewOut: 2,
     defaultRegenOut: 2,
     weeklyNewTarget: 9,
     weeklyRegenTarget: 9,
-    currentWeekCan: 'new', // 'new', 'regen', 'none'
-    deliveryDayOfWeek: 1, // 0=Sun, 1=Mon
+    currentWeekCan: 'new',
+    deliveryDayOfWeek: 1,
     defaultDeliveryQty: 10,
     newDeliveryQty: 10,
     regenDeliveryQty: 10,
     warnThreshold: 15,
     dangerThreshold: 5,
+    totalWarnThreshold: 25,
+    totalDangerThreshold: 30,
   },
-  dayOverrides: {}, // dateStr -> {newOut, regenOut, note}
-  viewMonth: null, // null = current
+  dayOverrides: {},
+  viewMonth: null,
 };
 
 // ===== GAS連携 =====
@@ -666,6 +710,36 @@ function updateStockCards() {
   document.getElementById('newAlert').innerHTML = alertHtml(ns, warn, danger);
   document.getElementById('regenAlert').innerHTML = alertHtml(rs, warn, danger);
 
+  // 廃液缶
+  const ws = state.wasteStock || 0;
+  document.getElementById('wasteStock').textContent = ws;
+  const wasteAlertEl = document.getElementById('wasteAlert');
+  if (wasteAlertEl) {
+    if (ws >= 5) wasteAlertEl.innerHTML = `<div class="alert-row danger">⚠ 廃液缶が多い（${ws}缶）</div>`;
+    else if (ws >= 3) wasteAlertEl.innerHTML = `<div class="alert-row warn">⚡ 廃液缶注意（${ws}缶）</div>`;
+    else wasteAlertEl.innerHTML = '';
+  }
+
+  // 合計缶数
+  const total = ns + rs + ws;
+  const totalWarn = state.settings.totalWarnThreshold || 25;
+  const totalDanger = state.settings.totalDangerThreshold || 30;
+  const totalEl = document.getElementById('totalStock');
+  const totalAlertEl = document.getElementById('totalAlert');
+  if (totalEl) totalEl.textContent = `${total}缶`;
+  if (totalAlertEl) {
+    if (total >= totalDanger) {
+      totalEl.style.color = 'var(--red)';
+      totalAlertEl.innerHTML = `<div class="alert-row danger">⚠ 上限超過危険（上限：${totalDanger}缶）</div>`;
+    } else if (total >= totalWarn) {
+      totalEl.style.color = 'var(--amber)';
+      totalAlertEl.innerHTML = `<div class="alert-row warn">⚡ 上限に近づいています（上限：${totalDanger}缶）</div>`;
+    } else {
+      totalEl.style.color = 'var(--text)';
+      totalAlertEl.innerHTML = `<div class="alert-row ok">✓ 上限内（上限：${totalDanger}缶）</div>`;
+    }
+  }
+
   // Next delivery badges
   const deliveries = getUpcomingDeliveries(30);
   const nextNew = deliveries.find(d => d.type === 'new');
@@ -766,10 +840,12 @@ function setCurrentWeekCan(type) {
 let stockEditType = null;
 function openStockEdit(type) {
   stockEditType = type;
-  const label = type === 'new' ? '新液缶' : '再生缶';
+  const labels = { new: '新液缶', regen: '再生缶', waste: '廃液缶' };
+  const label = labels[type];
+  const current = type === 'new' ? state.newStock : type === 'regen' ? state.regenStock : (state.wasteStock||0);
   document.getElementById('stockEditTitle').textContent = label + 'の在庫数を修正';
   document.getElementById('stockEditLabel').textContent = label + '（現在の実棚数）';
-  document.getElementById('stockEditVal').value = type === 'new' ? state.newStock : state.regenStock;
+  document.getElementById('stockEditVal').value = current;
   document.getElementById('stockEditModal').classList.add('open');
 }
 function closeStockEdit() {
@@ -780,7 +856,8 @@ function saveStockEdit() {
   const val = parseInt(document.getElementById('stockEditVal').value);
   if (isNaN(val) || val < 0) { alert('正しい数字を入力してください'); return; }
   if (stockEditType === 'new') state.newStock = val;
-  else state.regenStock = val;
+  else if (stockEditType === 'regen') state.regenStock = val;
+  else if (stockEditType === 'waste') state.wasteStock = val;
   save();
   render();
   closeStockEdit();
@@ -1121,8 +1198,8 @@ function renderHistory() {
   const sorted = [...state.log].sort((a,b) => b.date.localeCompare(a.date));
   list.innerHTML = sorted.map((l,i) => {
     const idx = state.log.indexOf(l);
-    const typeLabel = l.canType === 'new' ? '新液缶' : '再生缶';
-    const typeClass = l.canType;
+    const typeLabel = l.canType === 'new' ? '新液缶' : l.canType === 'regen' ? '再生缶' : '廃液缶';
+    const typeClass = l.canType === 'waste' ? 'waste' : l.canType;
     const d = new Date(l.date + 'T00:00:00');
     const days = ['日','月','火','水','木','金','土'];
     const dateStr = `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
@@ -1163,6 +1240,8 @@ function renderSettings() {
     { label: '再生缶 1回入荷数', sub: '未来の予測に使用', key: 'regenDeliveryQty' },
     { label: '在庫注意レベル（缶）', sub: 'この数以下で警告', key: 'warnThreshold' },
     { label: '在庫危険レベル（缶）', sub: 'この数以下で危険警告', key: 'dangerThreshold' },
+    { label: '総保有上限 注意（缶）', sub: '消防法上限の注意ライン', key: 'totalWarnThreshold' },
+    { label: '総保有上限 危険（缶）', sub: '消防法上限の危険ライン', key: 'totalDangerThreshold' },
   ];
   container.innerHTML = rows.map(r => `
     <div class="setting-item">
@@ -1187,7 +1266,7 @@ function renderSettings() {
 }
 
 function saveSettings() {
-  const keys = ['newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold'];
+  const keys = ['newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold','totalWarnThreshold','totalDangerThreshold'];
   keys.forEach(k => {
     const el = document.getElementById('setting_' + k);
     if (el) state.settings[k] = parseInt(el.value) || 0;
@@ -1205,42 +1284,35 @@ async function recordToday() {
   const regenOut = parseInt(document.getElementById('quickRegenOut').value) || 0;
   const newIn = parseInt(document.getElementById('quickNewIn').value) || 0;
   const regenIn = parseInt(document.getElementById('quickRegenIn').value) || 0;
+  const wasteIn = parseInt(document.getElementById('quickWasteIn').value) || 0;
+  const wasteOut = parseInt(document.getElementById('quickWasteOut').value) || 0;
   const note = document.getElementById('quickNote').value.trim();
   const ds = todayStr();
 
-  if (newOut === 0 && regenOut === 0 && newIn === 0 && regenIn === 0) {
+  if (newOut === 0 && regenOut === 0 && newIn === 0 && regenIn === 0 && wasteIn === 0 && wasteOut === 0) {
     alert('出庫数または入荷数を入力してください'); return;
   }
 
-  // 既存の今日のログを削除して上書き
   state.log = state.log.filter(l => l.date !== ds);
   const entries = [];
 
-  if (newOut > 0) {
-    const e = { date: ds, canType: 'new', direction: 'out', qty: newOut, note: note || '出庫' };
-    state.log.push(e); entries.push(e);
-  }
-  if (regenOut > 0) {
-    const e = { date: ds, canType: 'regen', direction: 'out', qty: regenOut, note: note || '出庫' };
-    state.log.push(e); entries.push(e);
-  }
-  if (newIn > 0) {
-    const e = { date: ds, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' };
-    state.log.push(e); entries.push(e);
-  }
-  if (regenIn > 0) {
-    const e = { date: ds, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' };
-    state.log.push(e); entries.push(e);
-  }
+  if (newOut > 0) { const e = {date:ds,canType:'new',direction:'out',qty:newOut,note:note||'出庫'}; state.log.push(e); entries.push(e); }
+  if (regenOut > 0) { const e = {date:ds,canType:'regen',direction:'out',qty:regenOut,note:note||'出庫'}; state.log.push(e); entries.push(e); }
+  if (newIn > 0) { const e = {date:ds,canType:'new',direction:'in',qty:newIn,note:note||'入荷'}; state.log.push(e); entries.push(e); }
+  if (regenIn > 0) { const e = {date:ds,canType:'regen',direction:'in',qty:regenIn,note:note||'入荷'}; state.log.push(e); entries.push(e); }
+  if (wasteIn > 0) { const e = {date:ds,canType:'waste',direction:'in',qty:wasteIn,note:note||'廃液増加'}; state.log.push(e); entries.push(e); }
+  if (wasteOut > 0) { const e = {date:ds,canType:'waste',direction:'out',qty:wasteOut,note:note||'廃液回収'}; state.log.push(e); entries.push(e); }
 
-  // 実在庫を更新
   state.newStock = Math.max(0, state.newStock + newIn - newOut);
   state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut);
+  state.wasteStock = Math.max(0, (state.wasteStock||0) + wasteIn - wasteOut);
 
   document.getElementById('quickNewOut').value = 2;
   document.getElementById('quickRegenOut').value = 2;
   document.getElementById('quickNewIn').value = 0;
   document.getElementById('quickRegenIn').value = 0;
+  document.getElementById('quickWasteIn').value = 0;
+  document.getElementById('quickWasteOut').value = 0;
   document.getElementById('quickNote').value = '';
   save();
   render();
@@ -1278,6 +1350,8 @@ function openDayModal(ds) {
   document.getElementById('dayRegenIn').value = 0;
   document.getElementById('dayNewOut2').value = 0;
   document.getElementById('dayRegenOut2').value = 0;
+  document.getElementById('dayWasteIn').value = 0;
+  document.getElementById('dayWasteOut').value = 0;
 
   // 既存ログがあれば表示
   const dayLogs = state.log.filter(l => l.date === ds);
@@ -1347,33 +1421,26 @@ async function saveDayOverride() {
     const newOut2 = parseInt(document.getElementById('dayNewOut2').value) || 0;
     const regenOut2 = parseInt(document.getElementById('dayRegenOut2').value) || 0;
 
-    if (newIn === 0 && regenIn === 0 && newOut2 === 0 && regenOut2 === 0 && !note) {
+    const wasteIn = parseInt(document.getElementById('dayWasteIn').value) || 0;
+    const wasteOut = parseInt(document.getElementById('dayWasteOut').value) || 0;
+
+    if (newIn === 0 && regenIn === 0 && newOut2 === 0 && regenOut2 === 0 && wasteIn === 0 && wasteOut === 0 && !note) {
       alert('入荷数または出庫数を入力してください'); return;
     }
 
-    // 既存のその日のログを削除して上書き
     state.log = state.log.filter(l => l.date !== ds);
 
-    if (newIn > 0) {
-      const e = { date: ds, canType: 'new', direction: 'in', qty: newIn, note: note || '入荷' };
-      state.log.push(e); entries.push(e);
-    }
-    if (regenIn > 0) {
-      const e = { date: ds, canType: 'regen', direction: 'in', qty: regenIn, note: note || '入荷' };
-      state.log.push(e); entries.push(e);
-    }
-    if (newOut2 > 0) {
-      const e = { date: ds, canType: 'new', direction: 'out', qty: newOut2, note: note || '出庫' };
-      state.log.push(e); entries.push(e);
-    }
-    if (regenOut2 > 0) {
-      const e = { date: ds, canType: 'regen', direction: 'out', qty: regenOut2, note: note || '出庫' };
-      state.log.push(e); entries.push(e);
-    }
-    // 今日分は実在庫を更新
+    if (newIn > 0) { const e={date:ds,canType:'new',direction:'in',qty:newIn,note:note||'入荷'}; state.log.push(e); entries.push(e); }
+    if (regenIn > 0) { const e={date:ds,canType:'regen',direction:'in',qty:regenIn,note:note||'入荷'}; state.log.push(e); entries.push(e); }
+    if (newOut2 > 0) { const e={date:ds,canType:'new',direction:'out',qty:newOut2,note:note||'出庫'}; state.log.push(e); entries.push(e); }
+    if (regenOut2 > 0) { const e={date:ds,canType:'regen',direction:'out',qty:regenOut2,note:note||'出庫'}; state.log.push(e); entries.push(e); }
+    if (wasteIn > 0) { const e={date:ds,canType:'waste',direction:'in',qty:wasteIn,note:note||'廃液増加'}; state.log.push(e); entries.push(e); }
+    if (wasteOut > 0) { const e={date:ds,canType:'waste',direction:'out',qty:wasteOut,note:note||'廃液回収'}; state.log.push(e); entries.push(e); }
+
     if (diffDays === 0) {
       state.newStock = Math.max(0, state.newStock + newIn - newOut2);
       state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut2);
+      state.wasteStock = Math.max(0, (state.wasteStock||0) + wasteIn - wasteOut);
     }
     if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
 
