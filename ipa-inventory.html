@@ -272,7 +272,11 @@ h2{font-size:17px;font-weight:600}
         <div class="stock-sub" id="regenDaysLeft"></div>
         <div id="regenAlert"></div>
       </div>
-      <div class="stock-card" style="border-left:3px solid #8B4513;background:linear-gradient(135deg,#fdf6f0,#fce8d8)">
+    </div>
+
+    <!-- 廃液缶 + 合計 横並び -->
+    <div style="display:flex;gap:10px;margin-top:0">
+      <div class="stock-card" style="flex:1;border-left:3px solid #8B4513;background:linear-gradient(135deg,#fdf6f0,#fce8d8)">
         <div class="stock-header">
           <span class="can-badge" style="background:#f0d0b0;color:#6B3000">廃液缶</span>
         </div>
@@ -283,15 +287,13 @@ h2{font-size:17px;font-weight:600}
         </div>
         <div id="wasteAlert"></div>
       </div>
-    </div>
-
-    <!-- 合計缶数 -->
-    <div id="totalCanArea" style="margin:8px 0;padding:12px 16px;border-radius:12px;background:var(--surface2);border:0.5px solid var(--border)">
-      <div style="display:flex;align-items:center;justify-content:space-between">
-        <span style="font-size:13px;color:var(--text2);font-weight:600">総保有缶数（新液＋再生＋廃液）</span>
-        <span id="totalStock" style="font-size:20px;font-weight:800;color:var(--text)">—</span>
+      <div id="totalCanArea" style="flex:1.4;padding:12px 14px;border-radius:12px;background:var(--surface2);border:0.5px solid var(--border);display:flex;flex-direction:column;justify-content:center">
+        <div style="font-size:11px;color:var(--text2);font-weight:600;margin-bottom:4px">総保有缶数（新液＋再生＋廃液）</div>
+        <div style="display:flex;align-items:baseline;gap:4px">
+          <span id="totalStock" style="font-size:26px;font-weight:800;color:var(--text)">—</span>
+        </div>
+        <div id="totalAlert" style="margin-top:4px"></div>
       </div>
-      <div id="totalAlert" style="margin-top:4px"></div>
     </div>
 
     <!-- クイック記録 -->
