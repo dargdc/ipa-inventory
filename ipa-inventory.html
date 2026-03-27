@@ -1053,17 +1053,17 @@ function renderCalendar() {
       return { ns: newStocks[diffDays], rs: regenStocks[diffDays], isPast: false };
     }
 
-    // 過去：ログがある日だけ表示（in/outログから積み上げ計算）
+    // 過去：ログがある日だけ表示（in/outログから積み上げ計算、廃液缶除外）
     if (diffDays < 0) {
-      const dayLogs = state.log.filter(l => l.date === dateStr && (l.direction === 'in' || l.direction === 'out'));
+      const dayLogs = state.log.filter(l => l.date === dateStr && (l.direction === 'in' || l.direction === 'out') && l.canType !== 'waste');
       if (dayLogs.length === 0) return null;
-      // 対象日以降のin/outログを逆算
+      // 対象日以降のin/outログを逆算（廃液缶除外）
       let ns = state.newStock;
       let rs = state.regenStock;
-      const laterLogs = state.log.filter(l => l.date > dateStr && (l.direction === 'in' || l.direction === 'out'));
+      const laterLogs = state.log.filter(l => l.date > dateStr && (l.direction === 'in' || l.direction === 'out') && l.canType !== 'waste');
       for (const l of laterLogs) {
         if (l.canType === 'new') ns = l.direction === 'in' ? ns - l.qty : ns + l.qty;
-        else rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
+        else if (l.canType === 'regen') rs = l.direction === 'in' ? rs - l.qty : rs + l.qty;
       }
       return { ns: Math.max(0, ns), rs: Math.max(0, rs), isPast: true };
     }
