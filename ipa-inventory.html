@@ -771,9 +771,8 @@ function formatDateShort(d) {
 }
 
 function getCurrentWeekCanFromLog() {
-  // ログの最終入荷から今週の入荷缶タイプを自動判定
   const inLogs = state.log
-    .filter(l => l.direction === 'in')
+    .filter(l => l.direction === 'in' && (l.canType === 'new' || l.canType === 'regen'))
     .sort((a, b) => b.date.localeCompare(a.date));
   if (inLogs.length === 0) return null; // 記録なし
 
@@ -875,7 +874,7 @@ function getWeekNumber(d) {
 
 function getLastDeliveryFromLog() {
   const inLogs = state.log
-    .filter(l => l.direction === 'in')
+    .filter(l => l.direction === 'in' && (l.canType === 'new' || l.canType === 'regen'))
     .sort((a, b) => b.date.localeCompare(a.date));
   return inLogs.length > 0 ? inLogs[0] : null;
 }
