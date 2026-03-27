@@ -1308,6 +1308,17 @@ async function recordToday() {
   state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut);
   state.wasteStock = Math.max(0, (state.wasteStock||0) + wasteIn - wasteOut);
 
+  // 再生缶入荷時に廃液缶回収の確認
+  if (regenIn > 0 && state.wasteStock > 0) {
+    const ws = state.wasteStock;
+    if (confirm(`廃液缶が${ws}缶あります。今日回収されましたか？\n「OK」で廃液缶を0にリセットします。`)) {
+      const e = {date:ds,canType:'waste',direction:'out',qty:ws,note:'廃液回収（再生缶入荷日）'};
+      state.log.push(e);
+      entries.push(e);
+      state.wasteStock = 0;
+    }
+  }
+
   document.getElementById('quickNewOut').value = 2;
   document.getElementById('quickRegenOut').value = 2;
   document.getElementById('quickNewIn').value = 0;
@@ -1442,6 +1453,15 @@ async function saveDayOverride() {
       state.newStock = Math.max(0, state.newStock + newIn - newOut2);
       state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut2);
       state.wasteStock = Math.max(0, (state.wasteStock||0) + wasteIn - wasteOut);
+      // 再生缶入荷時に廃液缶回収の確認
+      if (regenIn > 0 && state.wasteStock > 0) {
+        const ws = state.wasteStock;
+        if (confirm(`廃液缶が${ws}缶あります。今日回収されましたか？\n「OK」で廃液缶を0にリセットします。`)) {
+          const e = {date:ds,canType:'waste',direction:'out',qty:ws,note:'廃液回収（再生缶入荷日）'};
+          state.log.push(e); entries.push(e);
+          state.wasteStock = 0;
+        }
+      }
     }
     if (note) state.dayOverrides[ds] = { ...(state.dayOverrides[ds] || {}), note };
 
