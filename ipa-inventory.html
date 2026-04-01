@@ -420,7 +420,8 @@ h2{font-size:17px;font-weight:600}
       <div class="divider" style="margin:16px 0"></div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-primary" onclick="saveSettings()">設定を保存</button>
-        <button class="btn" onclick="exportData()">エクスポート</button>
+        <button class="btn" onclick="exportExcel()">📊 Excelエクスポート</button>
+        <button class="btn" onclick="exportData()">JSONバックアップ</button>
         <button class="btn btn-danger" onclick="resetAll()">リセット</button>
       </div>
     </div>
@@ -1539,6 +1540,57 @@ function exportData() {
   a.click();
 }
 
+function exportExcel() {
+  const days = ['日','月','火','水','木','金','土'];
+  const canLabels = { new: '新液缶', regen: '再生缶', waste: '廃液缶' };
+  const dirLabels = { in: '入荷', out: '出庫' };
+
+  // ログを日付順にソート
+  const sorted = [...state.log]
+    .filter(l => l.direction === 'in' || l.direction === 'out')
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  // 各缶の累計を計算しながら行を生成
+  let newTotal = 0, regenTotal = 0, wasteTotal = 0;
+
+  // 初期在庫をログ前の状態から逆算
+  // （簡易版：ログ全体の差分を現在在庫から逆算）
+  const allNew = sorted.filter(l=>l.canType==='new').reduce((s,l)=>l.direction==='in'?s+l.qty:s-l.qty,0);
+  const allRegen = sorted.filter(l=>l.canType==='regen').reduce((s,l)=>l.direction==='in'?s+l.qty:s-l.qty,0);
+  const allWaste = sorted.filter(l=>l.canType==='waste').reduce((s,l)=>l.direction==='in'?s+l.qty:s-l.qty,0);
+  newTotal = state.newStock - allNew;
+  regenTotal = state.regenStock - allRegen;
+  wasteTotal = (state.wasteStock||0) - allWaste;
+
+  // CSVデータ生成（ExcelはCSVを直接開ける）
+  const header = ['日付','曜日','缶タイプ','入出庫','数量','メモ','新液缶計','再生缶計','廃液缶計','総数'];
+  const rows = [header];
+
+  for (const l of sorted) {
+    const d = new Date(l.date + 'T00:00:00');
+    const dateStr = `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`;
+    const dow = days[d.getDay()];
+    const canType = canLabels[l.canType] || l.canType;
+    const dir = dirLabels[l.direction] || l.direction;
+    const qty = l.direction === 'in' ? l.qty : -l.qty;
+
+    if (l.canType === 'new') newTotal += qty;
+    else if (l.canType === 'regen') regenTotal += qty;
+    else if (l.canType === 'waste') wasteTotal += qty;
+
+    const total = newTotal + regenTotal + wasteTotal;
+    rows.push([dateStr, dow, canType, dir, l.qty, l.note || '', newTotal, regenTotal, wasteTotal, total]);
+  }
+
+  // BOM付きCSVで日本語対応
+  const csv = '\uFEFF' + rows.map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `IPA管理_${todayStr()}.csv`;
+  a.click();
+}
+
 async function resetAll() {
   if (!confirm('全データを初期化します。クラウドのデータも消去されます。よろしいですか？')) return;
   localStorage.removeItem(DB_KEY);
@@ -1568,6 +1620,7 @@ window.prevMonth = prevMonth;
 window.nextMonth = nextMonth;
 window.saveSettings = saveSettings;
 window.exportData = exportData;
+window.exportExcel = exportExcel;
 window.resetAll = resetAll;
 window.deleteLog = deleteLog;
 window.clearHistory = clearHistory;
