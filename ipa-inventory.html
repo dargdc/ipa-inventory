@@ -579,7 +579,7 @@ let state = {
 };
 
 // ===== GAS連携 =====
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzLzyWRLJ16PzhuxWFGdf4D2d40cYmHQhZLuxpUdomg2TobiShlgje4GmIfP4SJGyao/exec';
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeZzfheWMj1uRiEQhFG775jfy3QKM-binjCxBlzxodMkws3lw3xB75l1LoQ3r37uw4/exec';
 
 function gasGet(params) {
   const url = GAS_URL + '?' + Object.entries(params).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
