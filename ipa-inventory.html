@@ -583,7 +583,7 @@ const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeZzfheWMj1uRiEQhFG775
 
 function gasGet(params) {
   const url = GAS_URL + '?' + Object.entries(params).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
-  return fetch(url).then(r => r.json());
+  return fetch(url, { redirect: 'follow' }).then(r => r.json());
 }
 
 function showSyncStatus(msg, color) {
