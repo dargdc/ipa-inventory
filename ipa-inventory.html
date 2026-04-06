@@ -240,6 +240,7 @@ h2{font-size:17px;font-weight:600}
         </div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <button onclick="manualSync()" style="font-size:11px;color:var(--text3);background:none;border:0.5px solid var(--border);border-radius:6px;padding:3px 8px;cursor:pointer">☁ 同期</button>
         <span id="syncStatus" style="font-size:11px;color:var(--text3)"></span>
       </div>
     </div>
@@ -624,6 +625,17 @@ async function load() {
     showSyncStatus('⚠ オフライン（ローカルデータを使用）', 'var(--amber)');
   }
   render();
+}
+
+async function manualSync() {
+  showSyncStatus('☁ 同期中…', 'var(--amber)');
+  try {
+    await gasGet({ action: 'saveAll', payload: JSON.stringify(state) });
+    showSyncStatus('☁ 同期完了', 'var(--green)');
+    setTimeout(() => showSyncStatus('☁ 同期済み', 'var(--text3)'), 3000);
+  } catch(e) {
+    showSyncStatus('⚠ 同期失敗', 'var(--red)');
+  }
 }
 
 async function save() {
@@ -1189,7 +1201,9 @@ function renderHistory() {
     list.innerHTML = '<div class="empty-state">履歴がありません</div>';
     return;
   }
-  const sorted = [...state.log].sort((a,b) => b.date.localeCompare(a.date));
+  const sorted = [...state.log]
+    .filter(l => l.direction === 'in' || l.direction === 'out')
+    .sort((a,b) => b.date.localeCompare(a.date));
   list.innerHTML = sorted.map((l,i) => {
     const idx = state.log.indexOf(l);
     const typeLabel = l.canType === 'new' ? '新液缶' : l.canType === 'regen' ? '再生缶' : '廃液缶';
@@ -1621,6 +1635,7 @@ window.nextMonth = nextMonth;
 window.saveSettings = saveSettings;
 window.exportData = exportData;
 window.exportExcel = exportExcel;
+window.manualSync = manualSync;
 window.resetAll = resetAll;
 window.deleteLog = deleteLog;
 window.clearHistory = clearHistory;
