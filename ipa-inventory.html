@@ -582,6 +582,13 @@ let state = {
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeZzfheWMj1uRiEQhFG775jfy3QKM-binjCxBlzxodMkws3lw3xB75l1LoQ3r37uw4/exec';
 
 function gasGet(params) {
+  if (params.action === 'saveAll') {
+    // saveAllはデータが大きいのでPOSTで送る
+    const formData = new FormData();
+    Object.entries(params).forEach(([k,v]) => formData.append(k, v));
+    return fetch(GAS_URL, { method: 'POST', body: formData })
+      .then(r => r.json());
+  }
   const url = GAS_URL + '?' + Object.entries(params).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
   return fetch(url).then(r => r.json());
 }
