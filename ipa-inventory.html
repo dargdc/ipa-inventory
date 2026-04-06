@@ -582,21 +582,8 @@ let state = {
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeZzfheWMj1uRiEQhFG775jfy3QKM-binjCxBlzxodMkws3lw3xB75l1LoQ3r37uw4/exec';
 
 function gasGet(params) {
-  return new Promise((resolve, reject) => {
-    const cbName = '_cb' + Date.now();
-    params.callback = cbName;
-    const url = GAS_URL + '?' + Object.entries(params)
-      .map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
-    const script = document.createElement('script');
-    window[cbName] = (data) => {
-      delete window[cbName];
-      script.remove();
-      resolve(data);
-    };
-    script.onerror = () => { delete window[cbName]; script.remove(); reject(new Error('JSONP error')); };
-    script.src = url;
-    document.head.appendChild(script);
-  });
+  const url = GAS_URL + '?' + Object.entries(params).map(([k,v]) => k + '=' + encodeURIComponent(v)).join('&');
+  return fetch(url).then(r => r.json());
 }
 
 function showSyncStatus(msg, color) {
