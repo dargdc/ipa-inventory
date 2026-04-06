@@ -1437,6 +1437,7 @@ async function saveDayOverride() {
     const regenOut2 = parseInt(document.getElementById('dayRegenOut2').value) || 0;
 
     const wasteIn = parseInt(document.getElementById('dayWasteIn').value) || 0;
+    const wasteOut = 0; // 廃液缶の出庫はこの画面にはないので0固定
 
     if (newIn === 0 && regenIn === 0 && newOut2 === 0 && regenOut2 === 0 && wasteIn === 0 && !note) {
       alert('入荷数または出庫数を入力してください'); return;
