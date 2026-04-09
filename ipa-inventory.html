@@ -1373,14 +1373,28 @@ function openDayModal(ds) {
   document.getElementById('dayForecastSection').style.display = isFuture ? '' : 'none';
 
   // 入力欄をリセット
-  document.getElementById('dayNewIn').value = 0;
-  document.getElementById('dayRegenIn').value = 0;
-  document.getElementById('dayNewOut2').value = '';
-  document.getElementById('dayRegenOut2').value = '';
-  document.getElementById('dayWasteIn').value = '';
-
-  // 既存ログがあれば表示
+  // 既存ログがあれば入力欄にセット（修正しやすいように）
   const dayLogs = state.log.filter(l => l.date === ds);
+  if (!isFuture && dayLogs.length > 0) {
+    const inLogs = dayLogs.filter(l => l.direction === 'in');
+    const outLogs = dayLogs.filter(l => l.direction === 'out');
+    const preNewIn = inLogs.filter(l=>l.canType==='new').reduce((s,l)=>s+l.qty,0);
+    const preRegenIn = inLogs.filter(l=>l.canType==='regen').reduce((s,l)=>s+l.qty,0);
+    const preNewOut = outLogs.filter(l=>l.canType==='new').reduce((s,l)=>s+l.qty,0);
+    const preRegenOut = outLogs.filter(l=>l.canType==='regen').reduce((s,l)=>s+l.qty,0);
+    const preWasteIn = inLogs.filter(l=>l.canType==='waste').reduce((s,l)=>s+l.qty,0);
+    document.getElementById('dayNewIn').value = preNewIn;
+    document.getElementById('dayRegenIn').value = preRegenIn;
+    document.getElementById('dayNewOut2').value = preNewOut;
+    document.getElementById('dayRegenOut2').value = preRegenOut;
+    document.getElementById('dayWasteIn').value = preWasteIn;
+  } else {
+    document.getElementById('dayNewIn').value = 0;
+    document.getElementById('dayRegenIn').value = 0;
+    document.getElementById('dayNewOut2').value = '';
+    document.getElementById('dayRegenOut2').value = '';
+    document.getElementById('dayWasteIn').value = '';
+  }
 
   // 未来の予測設定を読み込み
   const ov = state.dayOverrides[ds] || {};
@@ -1459,6 +1473,17 @@ async function saveDayOverride() {
 
     if (newIn === 0 && regenIn === 0 && newOut2 === 0 && regenOut2 === 0 && wasteIn === 0 && !note) {
       alert('入荷数または出庫数を入力してください'); return;
+    }
+
+    // 今日の場合：古いログの在庫影響を先に戻す
+    if (diffDays === 0) {
+      const oldLogs = state.log.filter(l => l.date === ds);
+      for (const l of oldLogs) {
+        const sign = l.direction === 'in' ? -1 : 1;
+        if (l.canType === 'new') state.newStock = Math.max(0, state.newStock + sign * l.qty);
+        else if (l.canType === 'regen') state.regenStock = Math.max(0, state.regenStock + sign * l.qty);
+        else if (l.canType === 'waste') state.wasteStock = Math.max(0, (state.wasteStock||0) + sign * l.qty);
+      }
     }
 
     state.log = state.log.filter(l => l.date !== ds);
