@@ -306,11 +306,11 @@ h2{font-size:17px;font-weight:600}
       <div class="control-row">
         <div class="ctrl-group">
           <label>新液缶 出庫</label>
-          <input type="number" id="quickNewOut" min="0" max="999" value="2">
+          <input type="number" id="quickNewOut" min="0" max="999" placeholder="必須">
         </div>
         <div class="ctrl-group">
           <label>再生缶 出庫</label>
-          <input type="number" id="quickRegenOut" min="0" max="999" value="2">
+          <input type="number" id="quickRegenOut" min="0" max="999" placeholder="必須">
         </div>
         <div class="ctrl-group">
           <label>新液缶 入荷</label>
@@ -318,7 +318,7 @@ h2{font-size:17px;font-weight:600}
         </div>
         <div class="ctrl-group">
           <label>再生缶 入荷</label>
-          <input type="number" id="quickRegenIn" min="0" max="999" value="0">
+          <input type="number" id="quickRegenIn" min="0" max="999" placeholder="必須">
         </div>
       </div>
       <div class="control-row" style="margin-top:8px">
@@ -582,7 +582,6 @@ let state = {
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxeZzfheWMj1uRiEQhFG775jfy3QKM-binjCxBlzxodMkws3lw3xB75l1LoQ3r37uw4/exec';
 
 function gasGet(params) {
-  // saveAllはlogを除いて軽量化（logはappendLogで別途保存）
   if (params.action === 'saveAll' && params.payload) {
     try {
       const slim = JSON.parse(params.payload);
@@ -1296,17 +1295,21 @@ function saveSettings() {
 
 // ===== QUICK RECORD =====
 async function recordToday() {
-  const newOut = parseInt(document.getElementById('quickNewOut').value) || 0;
-  const regenOut = parseInt(document.getElementById('quickRegenOut').value) || 0;
+  // 必須欄が空欄なら記録不可
+  const newOutVal = document.getElementById('quickNewOut').value;
+  const regenOutVal = document.getElementById('quickRegenOut').value;
+  const regenInVal = document.getElementById('quickRegenIn').value;
+  if (newOutVal === '' || regenOutVal === '' || regenInVal === '') {
+    alert('新液缶 出庫・再生缶 出庫・再生缶 入荷を入力してください（増減なしの場合は0を入力）');
+    return;
+  }
+  const newOut = parseInt(newOutVal) || 0;
+  const regenOut = parseInt(regenOutVal) || 0;
   const newIn = parseInt(document.getElementById('quickNewIn').value) || 0;
-  const regenIn = parseInt(document.getElementById('quickRegenIn').value) || 0;
+  const regenIn = parseInt(regenInVal) || 0;
   const wasteIn = parseInt(document.getElementById('quickWasteIn').value) || 0;
   const note = document.getElementById('quickNote').value.trim();
   const ds = todayStr();
-
-  if (newOut === 0 && regenOut === 0 && newIn === 0 && regenIn === 0 && wasteIn === 0) {
-    alert('出庫数または入荷数を入力してください'); return;
-  }
 
   state.log = state.log.filter(l => l.date !== ds);
   const entries = [];
