@@ -318,13 +318,13 @@ h2{font-size:17px;font-weight:600}
         </div>
         <div class="ctrl-group">
           <label>再生缶 入荷</label>
-          <input type="number" id="quickRegenIn" min="0" max="999" placeholder="必須">
+          <input type="number" id="quickRegenIn" min="0" max="999" value="0">
         </div>
       </div>
       <div class="control-row" style="margin-top:8px">
         <div class="ctrl-group">
           <label style="color:#8B4513">廃液缶 増加</label>
-          <input type="number" id="quickWasteIn" min="0" max="999" value="0">
+          <input type="number" id="quickWasteIn" min="0" max="999" placeholder="必須">
         </div>
         <div class="ctrl-group" style="flex:1;min-width:120px">
           <label>メモ（任意）</label>
@@ -1298,16 +1298,16 @@ async function recordToday() {
   // 必須欄が空欄なら記録不可
   const newOutVal = document.getElementById('quickNewOut').value;
   const regenOutVal = document.getElementById('quickRegenOut').value;
-  const regenInVal = document.getElementById('quickRegenIn').value;
-  if (newOutVal === '' || regenOutVal === '' || regenInVal === '') {
-    alert('新液缶 出庫・再生缶 出庫・再生缶 入荷を入力してください（増減なしの場合は0を入力）');
+  const wasteInVal = document.getElementById('quickWasteIn').value;
+  if (newOutVal === '' || regenOutVal === '' || wasteInVal === '') {
+    alert('新液缶 出庫・再生缶 出庫・廃液缶 増加を入力してください（増減なしの場合は0を入力）');
     return;
   }
   const newOut = parseInt(newOutVal) || 0;
   const regenOut = parseInt(regenOutVal) || 0;
   const newIn = parseInt(document.getElementById('quickNewIn').value) || 0;
-  const regenIn = parseInt(regenInVal) || 0;
-  const wasteIn = parseInt(document.getElementById('quickWasteIn').value) || 0;
+  const regenIn = parseInt(document.getElementById('quickRegenIn').value) || 0;
+  const wasteIn = parseInt(wasteInVal) || 0;
   const note = document.getElementById('quickNote').value.trim();
   const ds = todayStr();
 
