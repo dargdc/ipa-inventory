@@ -1299,8 +1299,10 @@ async function recordToday() {
   const newOutVal = document.getElementById('quickNewOut').value;
   const regenOutVal = document.getElementById('quickRegenOut').value;
   const wasteInVal = document.getElementById('quickWasteIn').value;
-  if (newOutVal === '' || regenOutVal === '' || wasteInVal === '') {
-    alert('新液缶 出庫・再生缶 出庫・廃液缶 増加を入力してください（増減なしの場合は0を入力）');
+  const quickNote = document.getElementById('quickNote').value.trim();
+  if ((newOutVal === '' || regenOutVal === '' || wasteInVal === '') && !quickNote) {
+    alert('新液缶 出庫・再生缶 出庫・廃液缶 増加を入力してください（増減なしの場合は0を入力）
+※備考だけの場合は備考を入力すれば記録できます');
     return;
   }
   const newOut = parseInt(newOutVal) || 0;
@@ -1459,8 +1461,9 @@ async function saveDayOverride() {
     const newOut2Val = document.getElementById('dayNewOut2').value;
     const regenOut2Val = document.getElementById('dayRegenOut2').value;
     const wasteInVal = document.getElementById('dayWasteIn').value;
-    if (newOut2Val === '' || regenOut2Val === '' || wasteInVal === '') {
-      alert('新液缶 出庫・再生缶 出庫・廃液缶 増加を入力してください（増減なしの場合は0を入力）');
+    if ((newOut2Val === '' || regenOut2Val === '' || wasteInVal === '') && !note) {
+      alert('新液缶 出庫・再生缶 出庫・廃液缶 増加を入力してください（増減なしの場合は0を入力）
+※備考だけの場合は備考を入力すれば記録できます');
       return;
     }
     const newIn = parseInt(document.getElementById('dayNewIn').value) || 0;
