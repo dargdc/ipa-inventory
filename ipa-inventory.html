@@ -1209,23 +1209,29 @@ function renderHistory() {
     return;
   }
   const sorted = [...state.log]
-    .filter(l => l.direction === 'in' || l.direction === 'out')
+    .filter(l => l.direction === 'in' || l.direction === 'out' || l.direction === 'note')
     .sort((a,b) => b.date.localeCompare(a.date));
   list.innerHTML = sorted.map((l,i) => {
     const idx = state.log.indexOf(l);
-    const typeLabel = l.canType === 'new' ? '新液缶' : l.canType === 'regen' ? '再生缶' : '廃液缶';
-    const typeClass = l.canType === 'waste' ? 'waste' : l.canType;
+    const typeLabel = l.canType === 'new' ? '新液缶' : l.canType === 'regen' ? '再生缶' : l.canType === 'waste' ? '廃液缶' : '備考';
+    const typeClass = l.canType === 'waste' ? 'waste' : l.canType === 'note' ? 'regen' : l.canType;
     const d = new Date(l.date + 'T00:00:00');
     const days = ['日','月','火','水','木','金','土'];
     const dateStr = `${d.getMonth()+1}/${d.getDate()}(${days[d.getDay()]})`;
     let delta, deltaClass, noteLabel;
-    delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
-    deltaClass = l.direction === 'in' ? 'plus' : 'minus';
-    noteLabel = l.note || (l.direction === 'in' ? '入荷' : '出庫');
+    if (l.direction === 'note') {
+      delta = '―';
+      deltaClass = '';
+      noteLabel = l.note;
+    } else {
+      delta = l.direction === 'in' ? `+${l.qty}` : `-${l.qty}`;
+      deltaClass = l.direction === 'in' ? 'plus' : 'minus';
+      noteLabel = l.note || (l.direction === 'in' ? '入荷' : '出庫');
+    }
     return `<div class="log-item">
       <span class="log-date">${dateStr}</span>
       <span class="log-type ${typeClass}">${typeLabel}</span>
-      <span class="log-delta ${deltaClass}">${delta}缶</span>
+      <span class="log-delta ${deltaClass}">${delta}</span>
       <span class="log-note">${noteLabel}</span>
       <button class="log-del" onclick="deleteLog(${idx})" title="削除">✕</button>
     </div>`;
@@ -1320,6 +1326,8 @@ async function recordToday() {
   if (newIn > 0) { const e = {date:ds,canType:'new',direction:'in',qty:newIn,note:note||'入荷'}; state.log.push(e); entries.push(e); }
   if (regenIn > 0) { const e = {date:ds,canType:'regen',direction:'in',qty:regenIn,note:note||'入荷'}; state.log.push(e); entries.push(e); }
   if (wasteIn > 0) { const e = {date:ds,canType:'waste',direction:'in',qty:wasteIn,note:note||'廃液増加'}; state.log.push(e); entries.push(e); }
+  // 備考のみの場合はnoteエントリを追加
+  if (entries.length === 0 && note) { const e = {date:ds,canType:'note',direction:'note',qty:0,note:note}; state.log.push(e); entries.push(e); }
 
   state.newStock = Math.max(0, state.newStock + newIn - newOut);
   state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut);
@@ -1494,6 +1502,8 @@ async function saveDayOverride() {
     if (newOut2 > 0) { const e={date:ds,canType:'new',direction:'out',qty:newOut2,note:note||'出庫'}; state.log.push(e); entries.push(e); }
     if (regenOut2 > 0) { const e={date:ds,canType:'regen',direction:'out',qty:regenOut2,note:note||'出庫'}; state.log.push(e); entries.push(e); }
     if (wasteIn > 0) { const e={date:ds,canType:'waste',direction:'in',qty:wasteIn,note:note||'廃液増加'}; state.log.push(e); entries.push(e); }
+    // 備考のみの場合はnoteエントリを追加
+    if (entries.length === 0 && note) { const e={date:ds,canType:'note',direction:'note',qty:0,note:note}; state.log.push(e); entries.push(e); }
 
     if (diffDays === 0) {
       state.newStock = Math.max(0, state.newStock + newIn - newOut2);
