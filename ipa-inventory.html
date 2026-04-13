@@ -607,18 +607,28 @@ function isMobileDevice() {
 
 function applyDeviceMode() {
   if (!isMobileDevice()) {
-    // スマホ以外は入力エリアを非表示
-    const controlsArea = document.querySelector('.controls-area');
-    if (controlsArea) {
-      controlsArea.style.display = 'none';
+    // 警告バナーを表示（重複防止）
+    if (!document.getElementById('deviceBanner')) {
+      const banner = document.createElement('div');
+      banner.id = 'deviceBanner';
+      banner.style.cssText = 'background:var(--amber-bg);color:var(--amber);border:0.5px solid var(--amber-light);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;font-weight:600;text-align:center;';
+      banner.textContent = '⚠ このデバイスは在庫確認専用です。入力・履歴はスマートフォンから。';
+      const page = document.getElementById('page-main');
+      const header = page.querySelector('.page-header');
+      header.insertAdjacentElement('afterend', banner);
     }
-    // 警告バナーを表示
-    const banner = document.createElement('div');
-    banner.style.cssText = 'background:var(--amber-bg);color:var(--amber);border:0.5px solid var(--amber-light);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:13px;font-weight:600;text-align:center;';
-    banner.textContent = '⚠ このデバイスは参照専用です。入力はスマートフォンから行ってください。';
-    const page = document.getElementById('page-main');
-    const header = page.querySelector('.page-header');
-    header.insertAdjacentElement('afterend', banner);
+    // 入力エリアを非表示
+    const controlsArea = document.querySelector('.controls-area');
+    if (controlsArea) controlsArea.style.display = 'none';
+    // ナビのカレンダー・履歴・メニューを非表示
+    ['nav-calendar','nav-history','nav-more'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = 'none';
+    });
+    // ホームの修正ボタンを非表示
+    document.querySelectorAll('button').forEach(btn => {
+      if (btn.textContent === '修正') btn.style.display = 'none';
+    });
   }
 }
 
