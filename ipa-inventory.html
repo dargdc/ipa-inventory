@@ -652,8 +652,15 @@ function applyDeviceMode() {
       const header = page.querySelector('.page-header');
       header.insertAdjacentElement('afterend', banner);
     }
-    // 入力エリアを非表示
-    document.querySelectorAll('.controls-area').forEach(el => el.style.display = 'none');
+    // 入力エリアを非表示（危険物倉庫は在庫表示のみ残す）
+    document.querySelectorAll('.controls-area').forEach(el => {
+      if (el.id === 'dangerousArea') {
+        // 危険物倉庫は入力行だけ非表示
+        el.querySelectorAll('.control-row, button.btn').forEach(r => r.style.display = 'none');
+      } else {
+        el.style.display = 'none';
+      }
+    });
     // ナビのカレンダー・履歴・メニューを非表示
     ['nav-calendar','nav-history','nav-more'].forEach(id => {
       const el = document.getElementById(id);
