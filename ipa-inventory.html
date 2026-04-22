@@ -297,6 +297,38 @@ h2{font-size:17px;font-weight:600}
       </div>
     </div>
 
+    <!-- 危険物倉庫 -->
+    <div class="controls-area" id="dangerousArea" style="border-left:4px solid #c0392b">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:13px;font-weight:700;color:#c0392b;background:#fdecea;padding:3px 9px;border-radius:6px">🏭 危険物倉庫</span>
+          <span style="font-size:11px;color:var(--text3)">新液缶</span>
+        </div>
+        <button onclick="openStockEdit('dangerous')" style="font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;padding:2px 6px;border-radius:4px;border:0.5px solid var(--border)">修正</button>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:6px;margin-bottom:8px">
+        <span id="dangerousStock" style="font-size:44px;font-weight:700;line-height:1;color:#c0392b">—</span>
+        <span style="font-size:15px;color:var(--text2)">缶</span>
+      </div>
+      <div id="dangerousAlert"></div>
+      <div class="divider"></div>
+      <div class="control-row">
+        <div class="ctrl-group">
+          <label style="color:#c0392b">出庫</label>
+          <input type="number" id="dangerousOut" min="0" max="999" placeholder="必須">
+        </div>
+        <div class="ctrl-group">
+          <label style="color:#c0392b">入荷</label>
+          <input type="number" id="dangerousIn" min="0" max="999" value="0">
+        </div>
+        <div class="ctrl-group" style="flex:1;min-width:100px">
+          <label>メモ（任意）</label>
+          <input type="text" id="dangerousNote" placeholder="例：入荷あり" style="width:100%">
+        </div>
+        <button class="btn" style="align-self:flex-end;background:#c0392b;color:#fff;border-color:#c0392b" onclick="recordDangerous()">記録</button>
+      </div>
+    </div>
+
     <!-- クイック記録 -->
     <div class="controls-area">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
@@ -573,9 +605,12 @@ let state = {
     dangerThreshold: 5,
     totalWarnThreshold: 25,
     totalDangerThreshold: 30,
+    dangerousWarnThreshold: 5,
+    dangerousDangerThreshold: 2,
   },
   dayOverrides: {},
   viewMonth: null,
+  dangerousStock: 0,
 };
 
 // ===== GAS連携 =====
@@ -618,8 +653,7 @@ function applyDeviceMode() {
       header.insertAdjacentElement('afterend', banner);
     }
     // 入力エリアを非表示
-    const controlsArea = document.querySelector('.controls-area');
-    if (controlsArea) controlsArea.style.display = 'none';
+    document.querySelectorAll('.controls-area').forEach(el => el.style.display = 'none');
     // ナビのカレンダー・履歴・メニューを非表示
     ['nav-calendar','nav-history','nav-more'].forEach(id => {
       const el = document.getElementById(id);
@@ -794,6 +828,19 @@ function updateStockCards() {
   document.getElementById('newNextDelivery').textContent = nextNew ? `次回入荷：${formatDateShort(nextNew.date)}` : '';
   document.getElementById('regenNextDelivery').textContent = nextRegen ? `次回入荷：${formatDateShort(nextRegen.date)}` : '';
 
+  // 危険物倉庫
+  const ds_val = state.dangerousStock || 0;
+  const dWarn = state.settings.dangerousWarnThreshold || 5;
+  const dDanger = state.settings.dangerousDangerThreshold || 2;
+  const dsEl = document.getElementById('dangerousStock');
+  const dsAlertEl = document.getElementById('dangerousAlert');
+  if (dsEl) dsEl.textContent = ds_val;
+  if (dsAlertEl) {
+    if (ds_val <= dDanger) dsAlertEl.innerHTML = `<div class="alert-row danger">⚠ 在庫危険水準（${ds_val}缶）</div>`;
+    else if (ds_val <= dWarn) dsAlertEl.innerHTML = `<div class="alert-row warn">⚡ 在庫注意（${ds_val}缶）</div>`;
+    else dsAlertEl.innerHTML = `<div class="alert-row ok">✓ 在庫正常</div>`;
+  }
+
   // 本日の記録状態
   const statusEl = document.getElementById('todayRecordStatus');
   if (statusEl) {
@@ -886,9 +933,9 @@ function setCurrentWeekCan(type) {
 let stockEditType = null;
 function openStockEdit(type) {
   stockEditType = type;
-  const labels = { new: '新液缶', regen: '再生缶', waste: '廃液缶' };
+  const labels = { new: '新液缶', regen: '再生缶', waste: '廃液缶', dangerous: '危険物倉庫（新液缶）' };
   const label = labels[type];
-  const current = type === 'new' ? state.newStock : type === 'regen' ? state.regenStock : (state.wasteStock||0);
+  const current = type === 'new' ? state.newStock : type === 'regen' ? state.regenStock : type === 'dangerous' ? (state.dangerousStock||0) : (state.wasteStock||0);
   document.getElementById('stockEditTitle').textContent = label + 'の在庫数を修正';
   document.getElementById('stockEditLabel').textContent = label + '（現在の実棚数）';
   document.getElementById('stockEditVal').value = current;
@@ -903,6 +950,7 @@ function saveStockEdit() {
   if (isNaN(val) || val < 0) { alert('正しい数字を入力してください'); return; }
   if (stockEditType === 'new') state.newStock = val;
   else if (stockEditType === 'regen') state.regenStock = val;
+  else if (stockEditType === 'dangerous') state.dangerousStock = val;
   else if (stockEditType === 'waste') state.wasteStock = val;
   save();
   render();
@@ -1296,6 +1344,8 @@ function renderSettings() {
     { label: '在庫危険レベル（缶）', sub: 'この数以下で危険警告', key: 'dangerThreshold' },
     { label: '総保有上限 注意（缶）', sub: '消防法上限の注意ライン', key: 'totalWarnThreshold' },
     { label: '総保有上限 危険（缶）', sub: '消防法上限の危険ライン', key: 'totalDangerThreshold' },
+    { label: '危険物倉庫 注意（缶）', sub: '危険物倉庫の注意ライン', key: 'dangerousWarnThreshold' },
+    { label: '危険物倉庫 危険（缶）', sub: '危険物倉庫の危険ライン', key: 'dangerousDangerThreshold' },
   ];
   container.innerHTML = rows.map(r => `
     <div class="setting-item">
@@ -1320,7 +1370,7 @@ function renderSettings() {
 }
 
 function saveSettings() {
-  const keys = ['newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold','totalWarnThreshold','totalDangerThreshold'];
+  const keys = ['newDeliveryQty','regenDeliveryQty','warnThreshold','dangerThreshold','totalWarnThreshold','totalDangerThreshold','dangerousWarnThreshold','dangerousDangerThreshold'];
   keys.forEach(k => {
     const el = document.getElementById('setting_' + k);
     if (el) state.settings[k] = parseInt(el.value) || 0;
@@ -1571,6 +1621,21 @@ async function saveDayOverride() {
   }
 }
 
+async function recordDangerous() {
+  const outVal = document.getElementById('dangerousOut').value;
+  if (outVal === '') { alert('出庫数を入力してください（なければ0）'); return; }
+  const dOut = parseInt(outVal) || 0;
+  const dIn = parseInt(document.getElementById('dangerousIn').value) || 0;
+  const dNote = document.getElementById('dangerousNote').value.trim();
+  if (dOut === 0 && dIn === 0 && !dNote) { alert('出庫数・入荷数またはメモを入力してください'); return; }
+  state.dangerousStock = Math.max(0, (state.dangerousStock || 0) + dIn - dOut);
+  document.getElementById('dangerousOut').value = '';
+  document.getElementById('dangerousIn').value = 0;
+  document.getElementById('dangerousNote').value = '';
+  save();
+  render();
+}
+
 function clearDayOverride() {
   if (!currentDayStr) return;
   // ログも削除
@@ -1729,6 +1794,7 @@ window.deleteLog = deleteLog;
 window.clearHistory = clearHistory;
 window.addHolidayPeriod = addHolidayPeriod;
 window.deleteHoliday = deleteHoliday;
+window.recordDangerous = recordDangerous;
 window.openStockEdit = openStockEdit;
 window.closeStockEdit = closeStockEdit;
 window.saveStockEdit = saveStockEdit;
