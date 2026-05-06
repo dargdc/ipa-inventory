@@ -314,6 +314,7 @@ h2{font-size:17px;font-weight:600}
         <span style="font-size:15px;color:var(--text2)">缶</span>
       </div>
       <div id="dangerousAlert"></div>
+      <div id="dangerousLotList" style="margin:8px 0 4px"></div>
       <div class="divider"></div>
       <div class="control-row">
         <div class="ctrl-group">
@@ -614,6 +615,7 @@ let state = {
   dayOverrides: {},
   viewMonth: null,
   dangerousStock: 0,
+  dangerousLots: [],
 };
 
 // ===== GAS連携 =====
@@ -849,6 +851,20 @@ function updateStockCards() {
     if (ds_val <= dDanger) dsAlertEl.innerHTML = `<div class="alert-row danger">⚠ 在庫危険水準（${ds_val}缶）</div>`;
     else if (ds_val <= dWarn) dsAlertEl.innerHTML = `<div class="alert-row warn">⚡ 在庫注意（${ds_val}缶）</div>`;
     else dsAlertEl.innerHTML = `<div class="alert-row ok">✓ 在庫正常</div>`;
+  }
+  // ロット一覧表示
+  const lotListEl = document.getElementById('dangerousLotList');
+  if (lotListEl) {
+    const lots = (state.dangerousLots || []).filter(l => l.qty > 0);
+    if (lots.length === 0) {
+      lotListEl.innerHTML = '';
+    } else {
+      lotListEl.innerHTML = lots.map(l => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;margin-bottom:4px;background:var(--surface2);border-radius:6px;font-size:13px">
+          <span style="color:var(--text2)">📦 ${l.date} 入荷</span>
+          <span style="font-weight:700;color:#c0392b">${l.qty}缶</span>
+        </div>`).join('');
+    }
   }
 
   // 本日の記録状態
@@ -1638,7 +1654,36 @@ async function recordDangerous() {
   const dIn = parseInt(document.getElementById('dangerousIn').value) || 0;
   const dNote = document.getElementById('dangerousNote').value.trim();
   if (dOut === 0 && dIn === 0 && !dNote) { alert('出庫数・入荷数またはメモを入力してください'); return; }
-  state.dangerousStock = Math.max(0, (state.dangerousStock || 0) + dIn - dOut);
+
+  if (!state.dangerousLots) state.dangerousLots = [];
+
+  // 入荷ロットを追加（今日の日付）
+  if (dIn > 0) {
+    const ds = todayStr();
+    const existing = state.dangerousLots.find(l => l.date === ds);
+    if (existing) {
+      existing.qty += dIn;
+    } else {
+      state.dangerousLots.push({ date: ds, qty: dIn });
+    }
+  }
+
+  // 出庫は古いロットから先入れ先出し
+  if (dOut > 0) {
+    let remaining = dOut;
+    state.dangerousLots.sort((a, b) => a.date.localeCompare(b.date));
+    for (const lot of state.dangerousLots) {
+      if (remaining <= 0) break;
+      const take = Math.min(lot.qty, remaining);
+      lot.qty -= take;
+      remaining -= take;
+    }
+    state.dangerousLots = state.dangerousLots.filter(l => l.qty > 0);
+  }
+
+  // 合計を再計算
+  state.dangerousStock = state.dangerousLots.reduce((s, l) => s + l.qty, 0);
+
   document.getElementById('dangerousOut').value = '';
   document.getElementById('dangerousIn').value = 0;
   document.getElementById('dangerousNote').value = '';
