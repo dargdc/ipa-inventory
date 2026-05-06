@@ -325,6 +325,10 @@ h2{font-size:17px;font-weight:600}
           <label style="color:#c0392b">入荷</label>
           <input type="number" id="dangerousIn" min="0" max="999" value="0">
         </div>
+        <div class="ctrl-group" id="dangerousInDateGroup">
+          <label>入荷日</label>
+          <input type="date" id="dangerousInDate" style="font-size:13px">
+        </div>
         <div class="ctrl-group" style="flex:1;min-width:100px">
           <label>メモ（任意）</label>
           <input type="text" id="dangerousNote" placeholder="例：入荷あり" style="width:100%">
@@ -1657,15 +1661,17 @@ async function recordDangerous() {
 
   if (!state.dangerousLots) state.dangerousLots = [];
 
-  // 入荷ロットを追加（今日の日付）
+  // 入荷ロットを追加（手入力の入荷日）
   if (dIn > 0) {
-    const ds = todayStr();
-    const existing = state.dangerousLots.find(l => l.date === ds);
+    const inDateVal = document.getElementById('dangerousInDate').value;
+    if (!inDateVal) { alert('入荷日を入力してください'); return; }
+    const existing = state.dangerousLots.find(l => l.date === inDateVal);
     if (existing) {
       existing.qty += dIn;
     } else {
-      state.dangerousLots.push({ date: ds, qty: dIn });
+      state.dangerousLots.push({ date: inDateVal, qty: dIn });
     }
+    document.getElementById('dangerousInDate').value = '';
   }
 
   // 出庫は古いロットから先入れ先出し
