@@ -323,9 +323,9 @@ h2{font-size:17px;font-weight:600}
         </div>
         <div class="ctrl-group">
           <label style="color:#c0392b">入荷</label>
-          <input type="number" id="dangerousIn" min="0" max="999" value="0">
+          <input type="number" id="dangerousIn" min="0" max="999" value="0" onchange="toggleDangerousInDate()" oninput="toggleDangerousInDate()">
         </div>
-        <div class="ctrl-group" id="dangerousInDateGroup">
+        <div class="ctrl-group" id="dangerousInDateGroup" style="display:none">
           <label>入荷日</label>
           <input type="date" id="dangerousInDate" style="font-size:13px">
         </div>
@@ -1651,6 +1651,12 @@ async function saveDayOverride() {
   }
 }
 
+function toggleDangerousInDate() {
+  const dIn = parseInt(document.getElementById('dangerousIn').value) || 0;
+  document.getElementById('dangerousInDateGroup').style.display = dIn > 0 ? '' : 'none';
+  if (dIn === 0) document.getElementById('dangerousInDate').value = '';
+}
+
 async function recordDangerous() {
   const outVal = document.getElementById('dangerousOut').value;
   if (outVal === '') { alert('出庫数を入力してください（なければ0）'); return; }
@@ -1856,6 +1862,7 @@ window.clearHistory = clearHistory;
 window.addHolidayPeriod = addHolidayPeriod;
 window.deleteHoliday = deleteHoliday;
 window.recordDangerous = recordDangerous;
+window.toggleDangerousInDate = toggleDangerousInDate;
 window.openStockEdit = openStockEdit;
 window.closeStockEdit = closeStockEdit;
 window.saveStockEdit = saveStockEdit;
