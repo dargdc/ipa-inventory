@@ -325,9 +325,13 @@ h2{font-size:17px;font-weight:600}
           <label style="color:#c0392b">入荷</label>
           <input type="number" id="dangerousIn" min="0" max="999" value="0" onchange="toggleDangerousInDate()" oninput="toggleDangerousInDate()">
         </div>
-        <div class="ctrl-group" id="dangerousInDateGroup" style="display:none">
-          <label>入荷日</label>
-          <input type="date" id="dangerousInDate" style="font-size:13px">
+        <div class="ctrl-group" id="dangerousInDateGroup" style="display:none;flex-direction:column;gap:4px">
+          <label>入荷日（ロット）</label>
+          <div id="dangerousLotButtons" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:4px"></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <input type="date" id="dangerousInDate" style="font-size:13px;flex:1">
+            <span style="font-size:11px;color:var(--text3);white-space:nowrap">新ロット</span>
+          </div>
         </div>
         <div class="ctrl-group" style="flex:1;min-width:100px">
           <label>メモ（任意）</label>
@@ -1653,8 +1657,36 @@ async function saveDayOverride() {
 
 function toggleDangerousInDate() {
   const dIn = parseInt(document.getElementById('dangerousIn').value) || 0;
-  document.getElementById('dangerousInDateGroup').style.display = dIn > 0 ? '' : 'none';
-  if (dIn === 0) document.getElementById('dangerousInDate').value = '';
+  const group = document.getElementById('dangerousInDateGroup');
+  const lotBtns = document.getElementById('dangerousLotButtons');
+  if (dIn > 0) {
+    group.style.display = '';
+    // 既存ロットをボタンで表示
+    const lots = (state.dangerousLots || []).filter(l => l.qty > 0)
+      .sort((a,b) => a.date.localeCompare(b.date));
+    if (lots.length > 0) {
+      lotBtns.innerHTML = lots.map(l =>
+        `<button type="button" onclick="selectDangerousLot('${l.date}')"
+          style="font-size:11px;padding:3px 8px;border-radius:6px;border:1px solid #c0392b;background:#fdecea;color:#c0392b;cursor:pointer"
+          id="lotBtn_${l.date.replace(/-/g,'')}">${l.date}（${l.qty}缶）</button>`
+      ).join('');
+    } else {
+      lotBtns.innerHTML = '';
+    }
+  } else {
+    group.style.display = 'none';
+    document.getElementById('dangerousInDate').value = '';
+    if (lotBtns) lotBtns.innerHTML = '';
+  }
+}
+
+function selectDangerousLot(date) {
+  document.getElementById('dangerousInDate').value = date;
+  // 選択ボタンをハイライト
+  document.querySelectorAll('#dangerousLotButtons button').forEach(btn => {
+    btn.style.background = btn.id === 'lotBtn_' + date.replace(/-/g,'') ? '#c0392b' : '#fdecea';
+    btn.style.color = btn.id === 'lotBtn_' + date.replace(/-/g,'') ? '#fff' : '#c0392b';
+  });
 }
 
 async function recordDangerous() {
@@ -1863,6 +1895,7 @@ window.addHolidayPeriod = addHolidayPeriod;
 window.deleteHoliday = deleteHoliday;
 window.recordDangerous = recordDangerous;
 window.toggleDangerousInDate = toggleDangerousInDate;
+window.selectDangerousLot = selectDangerousLot;
 window.openStockEdit = openStockEdit;
 window.closeStockEdit = closeStockEdit;
 window.saveStockEdit = saveStockEdit;
