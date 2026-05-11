@@ -870,7 +870,11 @@ function updateStockCards() {
       lotListEl.innerHTML = lots.map(l => `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:4px 6px;margin-bottom:4px;background:var(--surface2);border-radius:6px;font-size:13px">
           <span style="color:var(--text2)">📦 ${l.date} 入荷</span>
-          <span style="font-weight:700;color:#c0392b">${l.qty}缶</span>
+          <div style="display:flex;align-items:center;gap:6px">
+            <span style="font-weight:700;color:#c0392b">${l.qty}缶</span>
+            <button onclick="editDangerousLot('${l.date}')" style="font-size:11px;padding:2px 6px;border-radius:4px;border:0.5px solid var(--border);background:var(--surface);color:var(--text2);cursor:pointer">編集</button>
+            <button onclick="deleteDangerousLot('${l.date}')" style="font-size:11px;padding:2px 6px;border-radius:4px;border:0.5px solid #c0392b;background:#fdecea;color:#c0392b;cursor:pointer">削除</button>
+          </div>
         </div>`).join('');
     }
   }
@@ -1680,6 +1684,28 @@ function toggleDangerousInDate() {
   }
 }
 
+function editDangerousLot(date) {
+  const lot = (state.dangerousLots || []).find(l => l.date === date);
+  if (!lot) return;
+  const newQty = prompt(`${date} 入荷ロットの缶数を入力`, lot.qty);
+  if (newQty === null) return;
+  const qty = parseInt(newQty);
+  if (isNaN(qty) || qty < 0) { alert('正しい数を入力してください'); return; }
+  lot.qty = qty;
+  state.dangerousLots = state.dangerousLots.filter(l => l.qty > 0);
+  state.dangerousStock = state.dangerousLots.reduce((s, l) => s + l.qty, 0);
+  save();
+  render();
+}
+
+function deleteDangerousLot(date) {
+  if (!confirm(`${date} 入荷ロットを削除しますか？`)) return;
+  state.dangerousLots = (state.dangerousLots || []).filter(l => l.date !== date);
+  state.dangerousStock = state.dangerousLots.reduce((s, l) => s + l.qty, 0);
+  save();
+  render();
+}
+
 function selectDangerousLot(date) {
   document.getElementById('dangerousInDate').value = date;
   // 選択ボタンをハイライト
@@ -1896,6 +1922,8 @@ window.deleteHoliday = deleteHoliday;
 window.recordDangerous = recordDangerous;
 window.toggleDangerousInDate = toggleDangerousInDate;
 window.selectDangerousLot = selectDangerousLot;
+window.editDangerousLot = editDangerousLot;
+window.deleteDangerousLot = deleteDangerousLot;
 window.openStockEdit = openStockEdit;
 window.closeStockEdit = closeStockEdit;
 window.saveStockEdit = saveStockEdit;
