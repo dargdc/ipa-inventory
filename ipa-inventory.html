@@ -1626,6 +1626,10 @@ async function saveDayOverride() {
     // 備考のみの場合はnoteエントリを追加
     if (entries.length === 0 && note) { const e={date:ds,canType:'note',direction:'note',qty:0,note:note}; state.log.push(e); entries.push(e); }
 
+    if (diffDays < 0) {
+      // 過去の記録は在庫数に自動反映されない
+      alert('過去の記録を保存しました。\n\n⚠ 在庫数はホーム画面に表示されている数値のままです。\n修正が必要な場合は、ホーム画面の各缶の「修正」ボタンから正しい数値を直接入力してください。');
+    }
     if (diffDays === 0) {
       state.newStock = Math.max(0, state.newStock + newIn - newOut2);
       state.regenStock = Math.max(0, state.regenStock + regenIn - regenOut2);
